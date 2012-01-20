@@ -1,0 +1,225 @@
+// File: accessors.gas
+// Description: 
+// This file contains functions that access data in the
+// 'Student Submissions' and 'Grades' sheets. 
+// Functions in this file are meant to centralize and obfuscate private 
+// information about where different fields (like hidden rows) are stored.
+// Other functions that simply make spreadsheet access easier
+// (e.g. getCellValue), but which don't utilize private info, should be
+// placed in the 'utilitiess.gas' file instead of this one.
+
+
+ // getNumQuestionsFromGrades:
+ // Given a reference to the grades sheet, calculates and returns the number
+ // of questions that were asked, including the implicit "Timestamp" question.
+ function getNumQuestionsFromGrades(grades_sheet)
+ {
+   return grades_sheet.getLastColumn() - gbl_num_additional_grades_cols;
+ }
+ 
+ // getNumQuestionsFromSubmissions:
+ // Given a reference to the submissions sheet, calculates and returns the number
+ // of questions that were asked in the assignment, including the implicit
+ // "Timestamp" question.
+ function getNumQuestionsFromSubmissions(subm_sheet)
+ {
+   var n_ques = subm_sheet.getLastColumn();
+   var question_vals = singleRowToArray(subm_sheet, 1, n_ques);
+ 
+   // make sure the user didn't do any rearranging of columns, leaving
+   // blank columns at the end.
+   for (var i = question_vals.length - 1; i >= 0; i--)
+     {
+       if (question_vals[i] != "")
+         {
+           break;
+         }
+       n_ques--;
+     }
+   
+   return n_ques;
+ }
+
+
+function getHiddenRowNumber(grades_sheet, hidden_row_id)
+{
+  var last_hidden_row_num = grades_sheet.getLastRow();
+  
+  return last_hidden_row_num - gbl_num_hidden_rows + hidden_row_id;
+}
+
+// getGradesRowData(grades_sheet, row_num)
+// returns an array of entries corresponding to the row specified in the 
+// grades sheet. Use this function to get the data from rows in the grades
+// sheet, as it ensures that the correct number of columns are used.
+function getGradesRowData(grades_sheet, row_num)
+{
+  var num_cols = grades_sheet.getLastColumn();
+  
+  return singleRowToArray(grades_sheet, row_num, num_cols);
+}
+
+
+// getSubmissionsRowDataReordered:
+// Returns the values in the row given in the Student Submissions
+// sheet. But returns them in the same order that the corresponding
+// questions are presented in the Grades sheet (so called "presentation
+// order"). For example, student identifiers come first, followed by
+// actual graded or skipped questions.
+// This function is used when doing things like emailing grades, where
+// it's desired to include the student's original answers in the email, 
+// but in the same order as the questions are presented in the Grades
+// sheet. Additionally, the responses must be lined up against the
+// grading options stored in the hidden row, which are also in presentation
+// order.
+// This function relies on the hidden "original order" row, the values 
+// of which are passed in as an argument (to avoid repeated spreadsheet 
+// access).
+// The array returned will be the same length as the number of columns
+// in the "Grades" sheet.
+function getSubmissionsRowDataReordered(subm_sheet, row_num, orig_order)
+{
+  var num_cols = getNumQuestionsFromSubmissions(subm_sheet);
+  
+  var row_data = singleRowToArray(subm_sheet, row_num, num_cols);
+  var reordered_data = new Array();
+  var i, orig_col;
+  
+  for (i=0; i < orig_order.length; i++)
+    {
+      if (orig_order[i] == "")
+        {
+          // This column didn't exist in the submission sheet (e.g. 'Total Score')
+          // Just add an empty array element, so the overall length of
+          // orig_order array and reordered_data arrays will match.
+          reordered_data.push("");
+        }
+      else
+        {
+          orig_col = orig_order[i]; // columns, starting from 1
+          orig_col = orig_col - 1;  // conver to array index;
+          reordered_data.push(row_data[orig_col]);
+        }
+    }
+  
+  return reordered_data;
+}
+
+
+// gets the grading options which are in the hidden row of the grades sheet.
+// returned array has as many entries as there are questions (incl timestamp),
+// plus some blank entries where extra columns were added, such as for the score
+// (see gbl_num_additional_grades_cols). options are in presentation order.
+function getGradingOptionsFromGrades(grades_sheet)
+{
+  var gopt_row = getHiddenRowNumber(grades_sheet, HIDDEN_ROW_GRADING_OPTIONS);
+  var grading_options = getGradesRowData(grades_sheet, gopt_row);
+  
+  return grading_options;
+}
+
+ 
+ //   0: row number of the answer key used in grading
+ //   1: the total number of counted submissions
+ //   2: the url of the histrogram chart image
+ // This is stored as the second hidden row of data in the spreadsheet, just below
+ // the grading options row.
+ 
+ function getHiddenGoodies(grades_sheet)
+ {   
+   var goodies_row_num = getHiddenRowNumber(grades_sheet, HIDDEN_ROW_GOODIES);
+  
+   goodies_csv = getCellValue(grades_sheet, goodies_row_num, 1);  
+   goodies_fields = goodies_csv.split(" ");
+   
+   return goodies_fields;
+ }
+  
+
+function getOriginalOrderFromGrades(grades_sheet)
+{
+  var oo_row = getHiddenRowNumber(grades_sheet, HIDDEN_ROW_ORIG_ORDER);
+  var oo_data = getGradesRowData(grades_sheet, oo_row);
+  
+  return oo_data;
+}
+
+
+// getQuestionVals:
+// Returns the full text of the questions asked in the assignment, but in the
+// same order as they appear in the grades sheet (presentation order).
+function getQuestionValsReordered(subm_sheet, orig_order)
+{
+  return getSubmissionsRowDataReordered(subm_sheet, 1, orig_order);
+}
+
+// getGradeRowPointsIndex:
+// Returns the index (from 0) of the column which holds each student's
+// total score (in points) in the Grades sheet. This comes just after all of the 
+// columns that identify the student.
+// Kind of hacky way to get at this, but really the only option.
+function getGradeRowPointsIndex(grading_options)
+{
+  for (var i=0; i < grading_options.length - 1; i++)
+    {
+      if (grading_options[i] == "")
+        {
+          return i;
+        }
+    }
+}
+
+// getGradeRowPercentageIndex:
+// Returns the index (from 0) of the column which holds each student's 
+// total core (as a percent) in the Grades sheet. This is the next entry after
+// all the column that has the number of points. 
+function getGradeRowSubmRowIndex(grading_options)
+{
+  return getGradeRowPointsIndex(grading_options) + 1;
+}
+ 
+
+// getGradeRowSubmRowIndex:
+// Returns the index (from 0) of the column which holds the 
+// reference (row num) to where the student's graded submissions
+// lies in the 'Student Submissions'. This is the third entry after
+// all of the columns that identify the student.
+
+function getGradeRowSubmRowIndex(grading_options)
+{
+  return getGradeRowPointsIndex(grading_options) + 2;
+}
+ 
+
+// getGradeRowSubmRowIndex:
+// Returns the index (from 0) of the column which holds the 
+// reference (row num) to where the student's graded submissions
+// lies in the 'Student Submissions'. This is the third entry after
+// all of the columns that identify the student.
+
+function getGradeRowSubmRowIndex(grading_options)
+{
+  return getGradeRowPointsIndex(grading_options) + 2;
+}
+ 
+ // getSheetWithSubmissions:
+ // Finds the sheet in the active spreadsheet with the submissions from the form,
+ // and returns an instance of it. If not found, returns null.
+ function getSheetWithSubmissions(ss)
+ {
+   var sheet = ss.getSheetByName(gbl_subm_sheet_name);
+  
+   return sheet;
+ }
+ 
+ // getSheetWithGrades:
+ // Finds the sheet in the active spreadsheet with the grades,
+ // and returns an instance of it. If not found, returns null.
+ function getSheetWithGrades(ss)
+ {
+   var sheet = ss.getSheetByName(gbl_grades_sheet_name);
+  
+   return sheet;
+ }
+
+
