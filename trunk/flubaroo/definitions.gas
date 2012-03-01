@@ -25,6 +25,7 @@ gbl_version_update_notice = "You've installed a new version Flubaroo! Visit flub
  gbl_num_hidden_rows = 3;       // number of hidden rows at the bottom of the Grades sheet.  
  gbl_num_cols_goodies_row = 3;  // # num of data fields in hidden row containing
                                 // extra "goodies" (below grading options row).
+ gbl_num_space_before_hidden = 10;  // number of rows to add before hidden rows   
  HIDDEN_ROW_GRADING_OPTIONS = 1;
  HIDDEN_ROW_GOODIES = 2;
  HIDDEN_ROW_ORIG_ORDER = 3;

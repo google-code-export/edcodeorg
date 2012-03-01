@@ -261,7 +261,7 @@
  function createStep2UI(e_step1, sheet)
  {
    var app = UiApp.createApplication().setTitle('Flubaroo - Grading Step 2')
-                                      .setWidth("700").setHeight("460");
+                                      .setWidth("800").setHeight("460");
    var num_rows = sheet.getLastRow();
    var num_subm = num_rows - 1;
    var num_questions = getNumQuestionsFromSubmissions(sheet);
@@ -701,9 +701,23 @@
  
    // next, create a blank sheet for the grades.
    grades_sheet = spreadsheet.insertSheet(gbl_grades_sheet_name);
-  
+   
    var submissions_sheet = getSheetWithSubmissions(spreadsheet);
-  
+
+   // Enter enough blank rows into the new Grades sheet. It
+   // starts with 100, but we may need more. Not having enough
+   // causes an error when trying to write to non-existent rows.
+   var num_blank_rows_needed = gbl_grades_start_row_num + 1 
+                               + submissions_sheet.getLastRow() 
+                               + gbl_num_space_before_hidden 
+                               + gbl_num_hidden_rows 
+                               + 10; // extra 10 for good measure
+   
+   if (num_blank_rows_needed > 100)
+     {
+       grades_sheet.insertRows(1, num_blank_rows_needed - 100);
+     }
+   
    // collect the answers from the Answer Key row. make all lowercase so we're
    // case insentive when comparing to text submissions.
    var answer_key_vals = singleRowToArray(submissions_sheet,
@@ -953,7 +967,7 @@
    // out in presentation order.
    // the fourth contains the full list of answer key values, written out in 
    // presentation order.
-   var hidden_row_num_start = percent_correct_row + 10; // 10 rows down, to help further hide it
+   var hidden_row_num_start = percent_correct_row + gbl_num_space_before_hidden; // several rows down, to help further hide it
    
    // write out the grading options in "presentation order", so each ends up in 
    // the same column as the question it was for.
