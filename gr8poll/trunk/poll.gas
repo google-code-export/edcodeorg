@@ -1,0 +1,588 @@
+// poll.gas:
+// This file contains the main functions required for conducting polls.
+
+// setupPoll: Sets up the UI structure, and returns a reference to it.
+// Starts the poll in a running state.
+function setupPoll(state)
+{   
+  // setup a UI that will include a bar chart, and start/stop button.
+  var app = UiApp.createApplication().setTitle(app_name + " (edcode.org)")
+                 .setWidth("520").setHeight("520");
+      
+  // create the main panel to hold all content in the UI
+  var main_panel = app.createVerticalPanel()
+                      .setHorizontalAlignment(UiApp.HorizontalAlignment.CENTER)
+                      .setWidth('100%');
+   
+  var click_handler = app.createServerClickHandler('clickHandler');
+  var mouse_down_handler = app.createServerMouseHandler('mouseDownHandler');
+
+  var settings_handler = app.createServerClickHandler('showSettingsHandler');
+  
+  var status_and_instr_panel = app.createVerticalPanel();
+  status_and_instr_panel.setHorizontalAlignment(UiApp.HorizontalAlignment.CENTER)
+                        .setWidth('100%');
+
+  
+  var status_panel = app.createVerticalPanel()     
+                        .setStyleAttribute('margin-left', '10px')
+                        .setStyleAttribute('margin-top', '20px')
+                        .setStyleAttribute('margin-bottom', '10px');
+  var label_status = app.createLabel(open_status)
+                        .setStyleAttribute("fontSize", "20pt")
+                        .setStyleAttribute("fontWeight", "bold")
+                        .setId("poll_status");
+  status_panel.add(label_status);
+  
+  var open_instr_panel = app.createVerticalPanel()
+                            .setStyleAttribute('margin-top', '10px')
+                            .setId("open_instructions")
+                            .setVerticalAlignment(UiApp.VerticalAlignment.MIDDLE)
+                            .setHeight("340");
+  
+  var hpanel_email = app.createVerticalPanel()
+                        .setStyleAttribute('border-spacing', '10px')
+                        .setStyleAttribute('margin-bottom', '10px')
+                        .setHorizontalAlignment(UiApp.HorizontalAlignment.CENTER)
+                        .setWidth('100%');
+  var label_email1 = app.createLabel("EMAIL").setStyleAttribute("fontSize", "18pt")
+                        .setStyleAttribute("fontWeight", "bold");
+  var label_email2 = app.createLabel(Session.getUser().getEmail()).setStyleAttribute("fontSize", "18pt");
+  var label_email3 = app.createLabel("Subject: qqq").setStyleAttribute("fontSize", "14pt");
+  hpanel_email.add(label_email1).add(label_email2).add(label_email3);
+  
+  var hpanel_text = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px')
+                       .setStyleAttribute('margin-bottom', '10px')
+                       .setHorizontalAlignment(UiApp.HorizontalAlignment.CENTER)
+                       .setWidth('100%');
+  var label_text1 = app.createLabel("TEXT").setStyleAttribute("fontSize", "18pt")
+                       .setStyleAttribute("fontWeight", "bold");
+  var phone_num = ScriptProperties.getProperty(PROP_GVOICE_NUM);
+  var label_text2 = app.createLabel(phone_num).setStyleAttribute("fontSize", "18pt");
+  hpanel_text.add(label_text1).add(label_text2);
+  
+  var hpanel_web = app.createVerticalPanel()
+                      .setStyleAttribute('border-spacing', '10px')
+                      .setStyleAttribute('margin-bottom', '10px')
+                      .setHorizontalAlignment(UiApp.HorizontalAlignment.CENTER)
+                      .setWidth('100%');
+  var label_web1 = app.createLabel("WEB").setStyleAttribute("fontSize", "18pt")
+                      .setStyleAttribute("fontWeight", "bold");
+  var short_form_url = getShortFormURL();
+
+  var long_form_url = getLongFormURL();
+  var label_web2 = app.createLabel(short_form_url).setStyleAttribute("fontSize", "18pt");
+  hpanel_web.add(label_web1).add(label_web2);
+
+  open_instr_panel.add(hpanel_email);
+  if (phone_num && (phone_num != ""))
+    {
+      open_instr_panel.add(hpanel_text);
+    }
+  if ((long_form_url != "") && (short_form_url != ""))
+    {
+      open_instr_panel.add(hpanel_web);
+    }
+  
+
+  var closed_instr_panel = app.createVerticalPanel()
+                              .setStyleAttribute('margin-top', '10px')
+                              .setId("closed_instructions");
+  var label_closed_instr = app.createLabel(closed_instr1)
+                              .setStyleAttribute("fontWeight", "bold")
+                              .setStyleAttribute("fontSize", "11pt");
+  closed_instr_panel.add(label_closed_instr);
+
+  
+  
+  status_and_instr_panel.add(status_panel)
+                        .add(open_instr_panel)
+                        .add(closed_instr_panel);
+  
+  var poll_chart_img = app.createImage(getChartURLProperty()).setId("poll_chart_img");
+  var chart_panel = app.createHorizontalPanel()
+                         .setStyleAttribute('margin-top', '45px')
+                         .setStyleAttribute('margin-bottom', '10px')
+                         .setHorizontalAlignment(UiApp.HorizontalAlignment.CENTER)
+                         .setWidth('100%')
+                         .setId("chart_panel")
+                         .add(poll_chart_img);
+  
+  
+  var poll_button = app.createButton(button_msg_stop_poll, click_handler).setId('poll_action'); 
+  poll_button.addMouseDownHandler(mouse_down_handler);
+ 
+  var settings_button = app.createButton(button_msg_settings, settings_handler).setId('settings_button');
+  
+  var button_grid = app.createGrid(1, 3).setStyleAttribute('float', 'left');
+  button_grid.setWidget(0,0, poll_button);
+  button_grid.setWidget(0,1, app.createLabel(" ").setWidth(20));
+  button_grid.setWidget(0,2, settings_button);
+  
+  var hpanel_bot = app.createHorizontalPanel()
+                         .setStyleAttribute('border-spacing', '3px')
+                         .setStyleAttribute('margin-top', '25px')
+                         .add(button_grid);
+    
+  main_panel.add(status_and_instr_panel);
+  main_panel.add(chart_panel);
+  main_panel.add(hpanel_bot);
+    
+  app.add(main_panel);
+  
+  setPollState(app, state);
+  
+  return app;
+}
+
+function mouseDownHandler(e)
+{
+  var app = UiApp.getActiveApplication();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var reset = false;
+  
+  poll_state = getPollStateProperty();
+
+  var poll_button = app.getElementById("poll_action");
+  var settings_button = app.getElementById("settings_button");
+  
+  if (poll_state == POLL_STATE_RUNNING)
+    {   
+      poll_button.setText(button_msg_calculating);
+      poll_button.setEnabled(false);
+    }
+  else  // poll_state == POLL_STATE_CLOSED 
+   {
+      poll_button.setText(button_msg_opening);
+      poll_button.setEnabled(false);
+      settings_button.setEnabled(false);
+   } 
+  return app;
+}
+
+function clickHandler(e)
+{
+  var app = UiApp.getActiveApplication();
+  var poll_button = app.getElementById("poll_action");
+  var settings_button = app.getElementById("settings_button");
+  
+  var poll_state = getPollStateProperty();
+  
+  if (poll_state == POLL_STATE_CLOSED)  // POLL WAS CLOSED, NOW RUNNING
+    {           
+      setPollState(app, POLL_STATE_RUNNING);
+    }
+  else  // POLL WAS RUNNING, NOW CLOSED
+    {
+      // tally up the results. display them.
+      var mail_totals = checkMailPollResults();
+      var form_totals = checkFormPollResults();
+      
+      var totals = new Array(5);
+      for (var i = 0; i < 5; i++)
+        {
+          totals[i] = mail_totals[i] + form_totals[i];
+        }
+      
+      var sum = totals[0] + totals[1] + totals[2] + totals[3] + totals[4];
+      ScriptProperties.setProperty(PROP_NUM_RESPONSES, sum);
+
+      var chart_url = createBarChartURL(sum, totals[0], totals[1], totals[2], totals[3], totals[4]);
+      setChartURLProperty(chart_url);
+      setPollState(app, POLL_STATE_CLOSED);    
+    }
+  
+  return app;
+}
+
+function setPollState(app, state)
+{
+  var poll_button = app.getElementById("poll_action");
+  var settings_button = app.getElementById("settings_button");
+  var poll_status = app.getElementById("poll_status");
+  var poll_open_instr = app.getElementById("open_instructions");
+  var poll_closed_instr = app.getElementById("closed_instructions");
+  var poll_chart_img = app.getElementById("poll_chart_img");
+  var chart_panel = app.getElementById("chart_panel");
+  
+  if (state == POLL_STATE_RUNNING)
+    {
+      poll_status.setText(open_status).setStyleAttribute("color", "green");     
+      poll_open_instr.setVisible(true);
+      poll_closed_instr.setVisible(false);      
+      chart_panel.setVisible(false);
+         
+      setPollStateProperty(POLL_STATE_RUNNING);
+      ScriptProperties.setProperty(PROP_NUM_RESPONSES, -1);
+  
+      poll_button.setText(button_msg_stop_poll);
+      poll_button.setEnabled(true);
+      settings_button.setEnabled(false);
+      
+      // clear out old responses
+      deleteAllPollResponses();
+    }
+  else // POLL_STATE_CLOSED
+    {
+      poll_chart_img.setUrl(getChartURLProperty());
+      chart_panel.setVisible(true);
+      
+      poll_status.setText(closed_status).setStyleAttribute("color", "red");
+      poll_open_instr.setVisible(false);
+      poll_closed_instr.setVisible(true);
+      
+      // clean up
+      setPollStateProperty(POLL_STATE_CLOSED);
+      poll_button.setText(button_msg_start_poll);
+      poll_button.setEnabled(true);
+      settings_button.setEnabled(true);
+      
+      // clear our old responses
+      deleteAllPollResponses();
+    }
+}
+
+function checkFormPollResults()
+{
+  var totals = new Array(5); // stores total counts for "A" through "E".
+  
+  for (var i = 0; i < totals.length; i++)
+    {
+      totals[i] = 0;
+    }
+   
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Sheet1");
+  if (sheet == null)
+    {
+      return totals;
+    }
+  
+  var num_rows = sheet.getMaxRows();
+  if (num_rows < 2)
+    {
+      return totals;
+    }
+  
+  var range_data = sheet.getRange(2, 2, sheet.getMaxRows() - 1, 1);
+  var values = range_data.getValues();
+  var char;
+
+  for (var c = 0; c < values.length; c++)
+    {
+      char = values[c].toString().toLowerCase();  
+      
+      if (char == "e")
+        {
+          totals[0] = totals[0] + 1;
+        }
+      else if (char == "d")
+        {
+          totals[1] = totals[1] + 1;
+        }
+      else if (char == "c")
+        {
+          totals[2] = totals[2] + 1;
+        }
+      else if (char == "b")
+        {
+          totals[3] = totals[3] + 1;
+        }
+      else if (char == "a")
+        {
+          totals[4] = totals[4] + 1;
+        }
+    }
+  
+  return totals;
+}
+
+
+
+
+function checkMailPollResults()
+{
+  var response = "";
+  var value = "";
+  var totals = new Array(5); // stores total counts for "A" through "E".
+  
+  var threads = GmailApp.search('subject:"SMS from " OR subject:"' + email_subject + '"');
+  var limit_responses = ScriptProperties.getProperty(PROP_LIMIT_RESPONSES);
+  if (limit_responses == null)
+    {
+      // never set. no way to initialize either, as we can't set properties in onInstall.
+      limit_responses = true;
+    }
+  else
+    {
+      limit_responses = ParseBoolean(limit_responses);
+    }
+  
+  var max_messages = 0;
+  
+  for (var i = 0; i < totals.length; i++)
+    {
+      totals[i] = 0;
+    }
+  
+  // go through all messages. add up number of "A" through "E" responses.
+  for (var t=0; t < threads.length; t++)
+    {
+      messages = threads[t].getMessages();
+       
+      for (var m=0; m < messages.length; m++)
+        {
+          if (!messages[m].isUnread())
+            { 
+              // already read, which means its from previous poll submission). skip it.
+              continue;
+            }
+          
+          // mark the message as read
+          messages[m].markRead();
+          
+          if (limit_responses && (m < messages.length - 1))
+            {
+              // skip this message. only process the last one in the thread.
+              continue;
+            }
+          
+          response = messages[m].getBody();
+          
+          var i=0;
+          var char = "";
+          for (i=0; i < response.length; i++)
+            {
+              if (i == 20) break; // set some reasonable limit
+              
+              char = response[i].toLowerCase();
+              if (char == "a" || char == "b" || char == "c" || char == "d" || char == "e")
+                {
+                  break;
+                }
+            }
+          
+          if ((i == response.length) || (i == 20))
+            {
+              // no letter in response. skip this message              
+              continue;
+            }
+                  
+          
+          if (char == "e")
+            {
+              totals[0] = totals[0] + 1;
+            }
+          else if (char == "d")
+            {
+              totals[1] = totals[1] + 1;
+            }
+          else if (char == "c")
+            {
+              totals[2] = totals[2] + 1;
+            }
+          else if (char == "b")
+            {
+              totals[3] = totals[3] + 1;
+            }
+          else if (char == "a")
+            {
+              totals[4] = totals[4] + 1;
+            }
+        }
+    }
+  
+  return totals;
+}
+
+function deleteAllPollResponses()
+{
+  // clear out old responses
+  var threads = GmailApp.search('subject:"SMS from " OR subject:"' + email_subject + '"');
+  for (var t=0; t < threads.length; t++)
+    {
+      threads[t].moveToTrash();
+    }
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Sheet1");
+  if (ss == null)
+    {
+      return;
+    }
+  
+  var num_rows = sheet.getMaxRows();
+  var num_responses = num_rows - 1;
+  
+  if (num_rows < 2)
+    {
+      // want at least header row and one response
+      // to have anything to bother deleting.
+      return; 
+    }
+  
+  // delete all rows after the first response
+  if (num_rows > 2)
+    {
+      sheet.deleteRows(3, num_responses - 1);  
+    }
+  
+  var range_data = sheet.getRange(2, 1, 1, 2);
+  
+  range_data.clearContent();
+ 
+}
+
+
+// vertical bat chart
+function createBarChartURL(sum, a, b, c, d, e)
+{
+  var title = "Poll+Results+(" + sum + "+responses)"
+  var url = "https://chart.googleapis.com/chart?cht=bvs&chs=300x300&chco=4d89f9&chtt=" + title + "&chts=000000,22&chxt=x&chxl=0:|A|B|C|D|E&chxs=0,000000,16&chbh=50,10,10&chd=t:";
+
+  url = url + e + "," + d + "," + c + "," + b + "," + a + "&";
+  
+  var max_val = Math.max(a,b,c,d,e);
+  url = url + "chds=0," + max_val + "&chm=N,000000,0,-1,16,0,c";
+  
+  return url;
+}
+
+function setPollStateProperty(state)
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui_sheet = ss.getSheetByName(app_name);
+  
+  var r = ui_sheet.getRange(ROW_STATE);
+  r.setValue(state);
+  ui_sheet.hideRow(r);
+}
+
+function getPollStateProperty()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui_sheet = ss.getSheetByName(app_name);
+  var r = ui_sheet.getRange(ROW_STATE);
+
+  var state = r.getValue();
+  
+  return state;
+}
+
+function setChartURLProperty(url)
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui_sheet = ss.getSheetByName(app_name);
+  
+  var r = ui_sheet.getRange(ROW_CHART_URL);
+  r.setValue(url);
+  ui_sheet.hideRow(r);
+}
+
+function getChartURLProperty()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui_sheet = ss.getSheetByName(app_name);
+  var r = ui_sheet.getRange(ROW_CHART_URL);
+
+  var url = r.getValue();
+  
+  return url;
+}
+
+function setFormUrls(long_url, short_url)
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui_sheet = ss.getSheetByName(app_name);
+  
+  var r = ui_sheet.getRange(ROW_LONG_FORM_URL);
+  r.setValue(long_url);
+  ui_sheet.hideRow(r);
+  
+  r = ui_sheet.getRange(ROW_SHORT_FORM_URL);
+  r.setValue(short_url);
+  ui_sheet.hideRow(r);
+}
+
+function recordShortFormURL(short_form_url)
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  var full_form_url_now = ss.getFormUrl();
+  if (full_form_url_now == null)
+    {
+      full_form_url_now = "";
+    }
+      
+  setFormUrls(full_form_url_now, short_form_url);
+}
+
+function getShortFormURL()
+{
+  var a = getFormUrls();
+  
+  var short_form_url = a[1];
+  return short_form_url;
+}
+
+function getLongFormURL()
+{
+  var a = getFormUrls();
+  
+  var long_form_url = a[0];
+  return long_form_url;
+}
+
+function getFormUrls()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui_sheet = ss.getSheetByName(app_name);
+
+  var r = ui_sheet.getRange(ROW_LONG_FORM_URL);
+  var long_url = r.getValue();
+
+  r = ui_sheet.getRange(ROW_SHORT_FORM_URL);
+  var short_url = r.getValue();
+  
+  var a = new Array(2);
+  a[0] = long_url;
+  a[1] = short_url;
+  
+  return a;
+}
+
+
+//function createShortFormURL(full_form_url)
+//{
+//  var to_shorten = UrlShortener.newUrl().setLongUrl(full_form_url);
+//
+//  var url_obj = UrlShortener.Url.insert(to_shorten);
+//  
+//  return url_obj.getId();
+//}
+
+//function setupShortFormURL(ss)
+//{
+//  var full_form_url_now = ss.getFormUrl();
+//
+//  if ((full_form_url_now == null) || (full_form_url_now == ""))
+//    {
+//      //  no form associated with this spreadsheet
+//      setFormUrls("", "");
+//    }
+//  else
+//    {
+//      // there is a form. if not set already, then set and record goo.gl short url.
+//      var a = getFormUrls();
+//      
+//      var short_form_url = a[0];
+//      var long_form_url = a[1];
+//      if (long_form_url != full_form_url_now)
+//        {
+//          short_form_url = createShortFormURL(full_form_url_now);
+//          setFormUrls(full_form_url_now, short_form_url);      
+//        }
+//    }  
+//}
+

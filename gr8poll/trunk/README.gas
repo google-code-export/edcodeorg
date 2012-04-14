@@ -1,0 +1,7 @@
+// The GR8POLL script allows users to easily poll a group of students via
+// text message (SMS), email, or Google Form.
+//
+// GR8POLL is an edCode.org project written by Dave Abouav.
+ 
+// Change Log:
+// Version pilot-A: 4/14/2012: First version of GR8POLL for pilot testing.

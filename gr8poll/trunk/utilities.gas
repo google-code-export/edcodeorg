@@ -1,0 +1,83 @@
+// utilities.gas:
+// This file contains miscellaneous functions, as well as
+// onInstall and onOpen.
+
+function onInstall()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // create the polling ui sheet
+  var ui_sheet = ss.getSheetByName(app_name);
+  if (ui_sheet == null)
+    {
+      ss.insertSheet(app_name);
+    }
+  
+  recordShortFormURL(""); // none to start with
+  
+  onOpen(); 
+}
+
+function onOpen()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui_sheet = ss.getSheetByName(app_name);
+  
+  // switch over to the polling ui sheet
+  if (ui_sheet == null)
+    {
+      ss.insertSheet(app_name);
+    }
+
+  setChartURLProperty("");
+  
+  createMenu(ss);
+ 
+  //init();  // should open UI on spreadsheet load, but doesn't work consistently.
+
+  // set a goo.gl short url to the form, if there is one.
+  // also update the short url if needed.
+  //setupShortFormURL(ss);
+}
+
+function init()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui_sheet = ss.getSheetByName(app_name);
+
+  ss.setActiveSheet(ui_sheet); 
+  
+  var app = UiApp.getActiveApplication();
+  if (app != null)
+    {
+     app.close();
+    }
+  
+  app = setupPoll(POLL_STATE_RUNNING);
+  ss.show(app);
+}
+
+function createMenu(ss)
+ { 
+   var menuEntries = [];
+ 
+   menuEntries.push({name: "Start New Poll", functionName: "init"});
+  
+   //menuEntries.push(null);
+   //menuEntries.push({name: "About GR8POLL", functionName: "about"});  
+     
+   ss.addMenu("GR8POLL", menuEntries);   
+ }
+
+function ParseBoolean(b)
+{
+  if (b == "true")
+    {
+      return true;
+    }
+  else
+    {
+      return false;
+    }
+}
+

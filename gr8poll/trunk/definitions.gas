@@ -1,0 +1,41 @@
+// definitions.gas:
+// This file contains all static, global definitions.
+
+// globals 
+button_msg_start_poll = "Start New Poll";
+button_msg_stop_poll = "Close Poll";
+button_msg_calculating = "Tallying Results ...";
+button_msg_opening = "Starting Poll...";
+button_msg_settings = "Settings";
+
+open_status = "Polling is now OPEN";
+open_instr2 = "Send just a single letter in your response (example: C)";
+closed_status = "Polling is now CLOSED";
+closed_instr1 = "Responses are not being accepted.";
+closed_instr2 = "";
+settings_instr = "Change settings below, then click OK.";
+
+// goo.gl API Key:
+// Right now this is useless until Google allows users who install
+// GR8POLL to make use of it too.
+// AIzaSyDcJtgahWoq-jEA1UDOylsQYmt0kbkGTQA
+
+// Script Properties and their possible values
+PROP_SHORT_FORM_URL = "SHORT_FORM_URL";
+PROP_LONG_FORM_URL = "LONG_FORM_URL";
+PROP_NUM_RESPONSES = "NUM_RESPONSES";
+PROP_GVOICE_NUM = "GOOGLE_VOICE_NUM";
+PROP_LIMIT_RESPONSES = "LIMIT_RESPONSES";
+  
+// poll states
+POLL_STATE_RUNNING = "RUNNING";
+POLL_STATE_CLOSED  = "CLOSED";
+
+// rows that store hidden info
+ROW_STATE = "A90";
+ROW_LONG_FORM_URL = "A91";
+ROW_SHORT_FORM_URL = "A92";
+ROW_CHART_URL = "A93";
+
+app_name = "GR8POLL";
+email_subject = "qqq";  // for poll email entries

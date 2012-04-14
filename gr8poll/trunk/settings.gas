@@ -1,0 +1,158 @@
+// settings.gas:
+// This file contains the functions and handlers relevant to the
+// settings window.
+
+function showSettingsHandler(e)
+{
+  var app = UiApp.getActiveApplication();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  app.close();  // close polling ui
+  
+  // create and show settings ui
+  var app2 = createSettingsUI();
+  ss.show(app2);
+  
+  //return app2;  // causes error sometimes
+}
+
+function processSettingsHandler(e)
+{
+  var app = UiApp.getActiveApplication();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // grab phone number and set it
+  var gvoice_num = e.parameter.gvoice_num;
+  ScriptProperties.setProperty(PROP_GVOICE_NUM, gvoice_num);
+   
+  // grab short url and set it
+  var short_url = e.parameter.short_url;
+  if (short_url != "")
+    {
+      // sanitize it by removing any http://
+      if (short_url.substr(0,7) == "http://")
+        {
+          short_url = short_url.substr(7);
+        }
+    }
+  recordShortFormURL(short_url);
+  
+  var limit_responses = e.parameter.limit_responses;
+    
+  ScriptProperties.setProperty(PROP_LIMIT_RESPONSES, limit_responses);
+
+  app.close();  // close settings ui
+  
+  // create and show polling ui
+  var app2 = setupPoll(POLL_STATE_CLOSED);
+  ss.show(app2);
+  
+  //return app; // causes error sometimes
+}
+
+// createSettingsUI: Sets up the basic UI structure, and returns a reference to it. Sets it up 
+// in a "polling closed" state.
+function createSettingsUI()
+{   
+  // setup a UI that will include a bar chart, and start/stop button.
+  var app = UiApp.createApplication().setTitle(app_name + " - Settings")
+                 .setWidth("300").setHeight("220")
+                 .setStyleAttribute('border-spacing', '10px');
+      
+  var click_handler = app.createServerClickHandler('processSettingsHandler');
+  var mouse_down_handler = app.createServerMouseHandler('settingsMouseDownHandler');
+  
+  // create the main panel to hold all content in the UI
+  var main_panel = app.createVerticalPanel();
+
+  var vpanel_main = app.createVerticalPanel();
+  var hpanel1 = app.createHorizontalPanel();
+  
+  var instr = app.createLabel(settings_instr).setStyleAttribute("fontWeight", "bold");
+  hpanel1.add(instr);
+  
+  var hpanel2 = app.createHorizontalPanel();
+  hpanel2.setSize("100%", "15");
+  
+  var hpanel3 = app.createHorizontalPanel();
+  var hpanel3_vpanel = app.createVerticalPanel();
+  var gvoice_label = app.createLabel("Google Voice Number (blank if none):");
+  var current_num = ScriptProperties.getProperty(PROP_GVOICE_NUM);
+  if (current_num == null)
+    {
+      current_num = "";
+    }
+  var gvoice_num = app.createTextBox().setId("gvoice_num").setName("gvoice_num")
+                                      .setText(current_num);
+  hpanel3_vpanel.add(gvoice_label).add(gvoice_num);
+  hpanel3.add(hpanel3_vpanel);
+  click_handler.addCallbackElement(gvoice_num);
+      
+  var hpanel4 = app.createHorizontalPanel();
+  hpanel4.setSize("100%", "15");
+  
+  var hpanel5 = app.createHorizontalPanel();
+  var hpanel5_vpanel = app.createVerticalPanel();
+  var short_url_label = app.createLabel("Short URL for Form (blank if none):");
+  var current_short_url = getShortFormURL();
+  if (current_short_url == null)
+    {
+      current_short_url = "";
+    }
+  var short_url = app.createTextBox().setId("short_url").setName("short_url")
+                                      .setText(current_short_url);
+  hpanel5_vpanel.add(short_url_label).add(short_url);
+  hpanel5.add(hpanel5_vpanel);
+  click_handler.addCallbackElement(short_url);
+  
+  var hpanel6 = app.createHorizontalPanel();
+  hpanel6.setSize("100%", "15");
+
+  var cbox_name = "limit_responses";
+  var cbox_val = ScriptProperties.getProperty(PROP_LIMIT_RESPONSES);
+  if (cbox_val == null)
+    {
+      // not initialized yet
+      cbox_val = true;
+    }
+  else 
+    {
+      cbox_val = ParseBoolean(cbox_val);
+    }
+  
+  var cbox = app.createCheckBox().setId(cbox_name).setName(cbox_name).setValue(cbox_val);
+  var hpanel7 = app.createHorizontalPanel()
+       .setSize("70%", 10)
+       .add(app.createLabel("For TEXT and EMAIL, limit to one submission per person: "))
+       .add(cbox);
+  click_handler.addCallbackElement(cbox);
+  
+  var hpanel8 = app.createHorizontalPanel();
+  hpanel8.setSize("100%", "20");
+  
+  vpanel_main.add(hpanel1).add(hpanel2).add(hpanel3).add(hpanel4)
+             .add(hpanel5).add(hpanel6).add(hpanel7).add(hpanel8);
+  main_panel.add(vpanel_main);
+    
+  var ok_button = app.createButton("OK", click_handler).setId('ok_button'); 
+  ok_button.addMouseDownHandler(mouse_down_handler);
+
+  main_panel.add(ok_button);
+  
+  app.add(main_panel);
+  
+  return app;
+}
+
+
+function settingsMouseDownHandler(e)
+{
+  var app = UiApp.getActiveApplication();
+  
+  var ok_button = app.getElementById("ok_button");
+  
+  ok_button.setEnabled(false);
+  
+  return app;
+}
+
