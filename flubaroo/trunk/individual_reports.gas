@@ -1,0 +1,360 @@
+function printReports() {
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+   var grades_sheet = getSheetWithGrades(ss);  
+   if (grades_sheet == null)
+     {
+       Browser.msgBox("Flubaroo Notification",
+                      "Flubaroo cannot create reports for this assignment "
+                      + "because there is no sheet named " + gbl_grades_sheet_name
+                      + " present. Please grade the assignment before "
+                      + " continuing.",
+                      Browser.Buttons.OK);
+       return;
+     }
+ 
+   var app = createIndividualGradeReports(ss);
+   ss.show(app);
+}
+
+function createIndividualGradeReports(ss){
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var submissions_sheet = getSheetWithSubmissions(ss);
+   var grades_sheet = getSheetWithGrades(ss);  
+ 
+   var app = UiApp.createApplication().setTitle('Flubaroo - Save Individual Reports')
+                                      .setWidth("400").setHeight("520");
+ 
+   var num_questions = getNumQuestionsFromGrades(grades_sheet);
+   var orig_order = getOriginalOrderFromGrades(grades_sheet);
+   
+   // grab the hidden row, which contains the grading options and answer key number. Includes point values and ignored fields 
+   var grading_options = getGradingOptionsFromGrades(grades_sheet);
+         
+   // capture the row of questions from the submissions sheet
+   var question_vals = getQuestionValsReordered(submissions_sheet, orig_order)
+         
+   // Declare the handler that will be called when the 'Continue' or 'Cancel'
+   // buttons are clicked.
+   var handler = app.createServerClickHandler('printReportsHandler');
+   var click_handler = app.createServerClickHandler('continueButtonClickHandler');
+   var show_questions_value_change_handler = app.createServerChangeHandler('showQuestionsValueChangeHandler');
+   
+   var email_addr = Session.getActiveUser().getEmail();
+   var email_addr_field = app.createHidden("email_addr", email_addr)
+                                .setId("email_addr").setName("email_addr");
+                              
+   var hidden_vars = app.createVerticalPanel().setVisible(false);
+   hidden_vars.add(email_addr_field);
+   handler.addCallbackElement(email_addr_field);
+ 
+    // create the main panel to hold all content in the UI for this step.
+   var main_panel = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px');
+         
+   // add a top level hpanel for instructions and picture
+   var hpanel = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '10px')
+       .add(app.createImage(FLUBAROO_WELCOME_IMG_URL))
+       .add(app.createLabel(PRINT_REPORTS_INSTRUCTIONS)
+            .setStyleAttribute('margin-top', '5px'));
+   main_panel.add(hpanel);
+  
+   var hpanel2 = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '6px');
+   main_panel.add(hpanel2);
+   
+   var name_name = "file_name";
+   var title_box = app.createTextBox().setId(name_name).setName(name_name);
+   var hpanelBox = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '6px')
+       .add(app.createLabel("Name of File to Create: "))
+       .add(title_box);
+   main_panel.add(hpanelBox);
+  
+   var cbox_name = "show_questions";
+   var cbox = app.createCheckBox().setId(cbox_name).setName(cbox_name)
+                                  .setValue(true)
+                                  .addValueChangeHandler(show_questions_value_change_handler);
+   var hpanel3 = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '6px')
+       .add(app.createLabel("Include List of Questions and Scores: "))
+       .add(cbox);
+   main_panel.add(hpanel3);
+ 
+   // depends on above being checked
+   var cbox2_name = "show_answers";
+   var cbox2 = app.createCheckBox().setId(cbox2_name).setName(cbox2_name);
+   var hpanel4 = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '6px')
+       .add(app.createLabel("Include Answer Key: "))
+       .add(cbox2);
+   main_panel.add(hpanel4);
+ 
+   var textbox_name = "instructor_message";
+   var tbox = app.createTextArea().setId(textbox_name).setName(textbox_name)
+                                 .setWidth('350').setHeight('100');
+   var hpanel4 = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '6px')
+       .add(app.createLabel("Message To Include on Reports(optional):"))
+   main_panel.add(hpanel4);
+   
+   var hpanel5 = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '6px')
+       .add(tbox);
+   main_panel.add(hpanel5);
+ 
+   // make selections available in handler.
+   handler.addCallbackElement(cbox);
+   handler.addCallbackElement(cbox2);
+   handler.addCallbackElement(tbox);
+   handler.addCallbackElement(title_box);
+ 
+   // add the Continue and Cancel buttons at the bottom.
+   var btnGrid = app.createGrid(1, 3).setStyleAttribute('float', 'right');
+   var btnSubmit = app.createButton('Continue',handler).setId('CONTINUE')
+                                                       .addClickHandler(click_handler);
+ 
+   btnGrid.setWidget(0,1,btnSubmit);
+   //btnGrid.setWidget(0,2,app.createButton('Cancel',handler).setId('CANCEL'));
+   btnGrid.setWidget(0,0,app.createImage(FLUBAROO_WORKING_IMG_URL).setVisible(false).setId('working'));
+ 
+   main_panel.add(btnGrid);
+   app.add(main_panel);
+  
+   return app;
+ }
+   
+ function showQuestionsValueChangeHandler(e)
+ {
+   var app = UiApp.getActiveApplication();
+   
+   var sa_cbox = app.getElementById('show_answers');
+   
+   var new_value = e.parameter.show_questions;
+   
+   if (new_value == 'true')
+     {
+       sa_cbox.setEnabled(true);
+     }
+   else
+     {
+       sa_cbox.setValue(false);
+       sa_cbox.setEnabled(false);
+     }
+
+   return app;
+}
+
+function printReportsHandler(e){
+   var app = UiApp.getActiveApplication();
+   
+   var source = e.parameter.source;
+  
+   if (source == 'CANCEL')
+     {
+       app.close();
+       return app;
+     }
+   
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   
+   var grades_sheet = getSheetWithGrades(ss);  
+   
+   var submissions_sheet = getSheetWithSubmissions(ss);
+   if (submissions_sheet == null)
+     {
+       Browser.msgBox("Flubaroo Notification",
+                      "Could not find the sheet: '" + gbl_subm_sheet_name +
+                      "'. Grades cannot be emailed.",
+                      Browser.Buttons.OK);
+       return;
+     }
+      
+  var show_answers = e.parameter.show_answers;
+   var instructor_message = e.parameter.instructor_message;
+   var file_name = e.parameter.file_name;
+   var show_questions = e.parameter.show_questions;
+   
+   var num_questions = getNumQuestionsFromGrades(grades_sheet);
+   
+   var grading_options = getGradingOptionsFromGrades(grades_sheet);
+   var hidden_goodies = getHiddenGoodies(grades_sheet);
+   
+   var presentation_order = getPresentationOrder(grades_sheet);
+   
+   // get the bonus data that's stored along with the grading options in the hidden row\
+   var answer_key_row_num = hidden_goodies[HIDDEN_GOODIES_ANSWER_KEY_ROW];
+   var num_subm = hidden_goodies[HIDDEN_GOODIES_NUMBER_SUBMISSIONS];
+      
+   
+   var orig_order = getOriginalOrderFromGrades(grades_sheet);
+        
+   // capture the row of questions from the submissions sheet
+   var question_vals = getQuestionValsReordered(submissions_sheet, orig_order)
+    
+   var answer_key_vals = getSubmissionsRowDataReordered(submissions_sheet, 
+                                                        answer_key_row_num, orig_order);
+   
+   var points_possible = getCellValue(grades_sheet, 2, 2);
+   var avg_subm_score = getCellValue(grades_sheet, 3, 2);
+   var num_subm = getCellValue(grades_sheet, 4, 2);
+   var assignment_name = ss.getName();
+ 
+   // remove any HTML formatting from the instructor's message
+   instructor_message = instructor_message.replace("<", "&lt;");
+   instructor_message = instructor_message.replace(">", "&gt;");
+   
+   var msg_title = 'Here is your grade for "' + assignment_name + '"';
+   var msg_body = "";
+                   
+   var start_row = gbl_grades_start_row_num+1;
+   var end_row = start_row + num_subm - 1;
+ 
+   // find out in which column the student's total score is stored.
+   var grade_row_pts_index = getGradeRowPointsIndex(grading_options);
+   
+   // find out in which column we record the row number of the student's graded
+   // submission (in "Student Submissions").
+   var grade_row_subm_row_index = getGradeRowSubmRowIndex(grading_options);  
+   var gradeDocument = DocumentApp.create(file_name);
+   gradeDocument.setMarginLeft(30);
+  gradeDocument.setMarginRight(30);
+  gradeDocument.setMarginTop(30);
+  gradeDocument.setMarginBottom(30);
+   
+   for (subm_row=start_row; subm_row <= end_row; subm_row++){
+           var grade_row_data = getGradesRowData(grades_sheet, subm_row);
+                
+           // get the responses that this student gave int their submissions
+           var student_subm_row = grade_row_data[grade_row_subm_row_index];
+           var student_subm_vals = getSubmissionsRowDataReordered(submissions_sheet, student_subm_row, orig_order);          
+           
+           gradeDocument = constructGradesReport(assignment_name,
+                                               num_questions,
+                                               points_possible,
+                                               show_questions,
+                                               question_vals,  // questions (to echo)
+                                               show_answers,
+                                               answer_key_vals,
+                                               student_subm_vals,
+                                               grade_row_data, // scores
+                                               grade_row_pts_index,
+                                               grading_options,
+                                               presentation_order,
+                                               instructor_message,
+                                               gradeDocument); // grading options
+         
+     
+   } //End of Loop
+  openLink();
+        app.close();
+   return app; 
+}
+   
+ function constructGradesReport(assignment_name,
+                                   num_questions, points_possible,
+                                   show_questions, question_vals, 
+                                   show_answers, answer_key_vals,
+                                   student_subm_vals,
+                                   grade_row_data,
+                                   grade_row_pts_index,
+                                   grading_options,
+                                   presentation_order,
+                                   instructor_message,
+                                   gradeDocument){
+            var bgcolor_red = "#e05252";
+            var bgcolor_green = "#00ee55";
+            var bgcolor_gray = "#c0c0c0";
+            var bgcolor_white = "#ffffff";
+            var bgcolor;
+            var c;
+            
+            var grade_pts = grade_row_data[grade_row_pts_index];
+          
+            gradeDocument.appendParagraph(assignment_name).setFontSize(18).setBold(true);
+            gradeDocument.appendParagraph("Your Grade: " + grade_pts + " / " + points_possible + " points").setFontSize(14);
+            if (instructor_message != "")
+               {
+                 gradeDocument.appendParagraph("");
+                 gradeDocument.appendParagraph("Below is a message from your instructor:");
+                 gradeDocument.appendParagraph(instructor_message).setItalic(true);
+               }
+            gradeDocument.appendParagraph("Summary of your submission: ")
+            var summaryTable = gradeDocument.appendTable().setBorderWidth(0);
+             for (var i=0; i < num_questions; i++) {
+                if (grading_options[i] == GRADING_OPT_STUD_ID)
+                  {
+                    var currentSummaryRow = summaryTable.appendTableRow().setMinimumHeight(12);
+                    setCellStyles(currentSummaryRow.appendTableCell(question_vals[i] + ":").setBold(true).setWidth(150),bgcolor_white);
+                    setCellStyles(currentSummaryRow.appendTableCell(grade_row_data[i]).setBold(false).setWidth(250),bgcolor_white);
+                  }
+             }
+   
+            currentSummaryRow = summaryTable.appendTableRow();
+            setCellStyles(currentSummaryRow.appendTableCell(gbl_lbl_subm_time + ":").setBold(true),bgcolor_white);
+            setCellStyles(currentSummaryRow.appendTableCell(grade_row_data[0]).setBold(false),bgcolor_white);
+            
+             var instructions = "";
+            if (show_questions == 'true'){
+                instructions += "Below is your score for each question";
+            }
+            if (show_answers == 'true'){
+                instructions += ", along with the correct answer:";
+            }
+               
+            gradeDocument.appendParagraph(instructions);
+
+            var questionTable = gradeDocument.appendTable().setBorderWidth(2);
+            var currentQuestionsRow = questionTable.appendTableRow();
+            currentQuestionsRow.appendTableCell("Questions").setBold(true);
+            currentQuestionsRow.appendTableCell("Your Answer").setBold(true);
+            if (show_answers == 'true') {
+                   currentQuestionsRow.appendTableCell("Correct Answer").setBold(true);
+           }
+            
+            currentQuestionsRow.appendTableCell("Your Score").setBold(true).setWidth(80);
+            currentQuestionsRow.appendTableCell("Points Possible").setBold(true).setWidth(80);
+   
+      for (var i=1; i < grading_options.length; i++){
+          if (grading_options[i] == "") {
+              // this is an added column that has no grading option,  such as "Total Points" or "Times Submitted".
+              continue;
+            }
+          if (grading_options[i] != GRADING_OPT_STUD_ID) {
+              if (grading_options[i] == GRADING_OPT_SKIP) {
+                  bgcolor = bgcolor_gray;
+               }
+              else if (grade_row_data[i] == 0) {
+                  bgcolor = bgcolor_red;
+               } 
+              else {
+                  bgcolor = bgcolor_green;
+               }
+
+              currentQuestionsRow = questionTable.appendTableRow();
+              setCellStyles(currentQuestionsRow.appendTableCell(question_vals[i]).setBold(false),bgcolor);
+              setCellStyles(currentQuestionsRow.appendTableCell(student_subm_vals[i]),bgcolor);
+        
+              if (show_answers == 'true') {
+                  setCellStyles(currentQuestionsRow.appendTableCell(answer_key_vals[i]),bgcolor);
+               }
+       
+              if (grading_options[i] == GRADING_OPT_SKIP) {
+                  //setCellStyles(currentQuestionsRow.appendTableCell(),bgcolor);
+                  //setCellStyles(currentQuestionsRow.appendTableCell(grade_row_data[i]),bgcolor);
+              }
+              else {
+                  setCellStyles(currentQuestionsRow.appendTableCell(grade_row_data[i]),bgcolor);
+                  setCellStyles(currentQuestionsRow.appendTableCell(getPointsWorth(grading_options[i])),bgcolor);
+                }
+            }
+        }
+     
+      gradeDocument.appendPageBreak();
+       return gradeDocument;
+}
+
+function setCellStyles (object,bgcolor){
+   return (object.setPaddingBottom(.002).setPaddingTop(.002).setPaddingLeft(.5).setPaddingRight(.5).setBackgroundColor(bgcolor));
+}
