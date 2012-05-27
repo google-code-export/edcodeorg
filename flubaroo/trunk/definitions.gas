@@ -80,7 +80,7 @@ gbl_version_update_notice = "You've installed a new version Flubaroo! Visit flub
 
  PRINT_REPORTS_INSTRUCTIONS = "Flubaroo can save the reports into a Google "
                              + "Doc as well as show the correct answers. "
-                             + "This can take several minutes to complete.  You"
+                             + "This can take several minutes to complete.  You "
                              + "will be able to find your new file in Google Docs.";
  
  ABOUT_FLUBAROO_MSG1 = "Flubaroo is a free, time-saving tool that allows "

@@ -43,7 +43,7 @@
      {
        menuEntries.push({name: "Regrade Assignment", functionName: "gradeStep1"});
        menuEntries.push({name: "Email Grades", functionName: "emailGrades"});
-       menuEntries.push({name: "Save Individual Report Document", functionName: "printReports"});
+       menuEntries.push({name: "Save Individual Reports", functionName: "printReports"});
        menuEntries.push({name: "View Report", functionName: "viewReport"});
      }
    else

@@ -247,8 +247,7 @@ function printReportsHandler(e){
          
      
    } //End of Loop
-  openLink();
-        app.close();
+   app.close();
    return app; 
 }
    
@@ -269,14 +268,14 @@ function printReportsHandler(e){
             var bgcolor_white = "#ffffff";
             var bgcolor;
             var c;
+            var cell_content;
             
             var grade_pts = grade_row_data[grade_row_pts_index];
           
-            gradeDocument.appendParagraph(assignment_name).setFontSize(18).setBold(true);
-            gradeDocument.appendParagraph("Your Grade: " + grade_pts + " / " + points_possible + " points").setFontSize(14);
+            gradeDocument.appendParagraph(assignment_name).setFontSize(12).setBold(true);
+            gradeDocument.appendParagraph("Your Grade: " + grade_pts + " / " + points_possible + " points").setFontSize(10);
             if (instructor_message != "")
                {
-                 gradeDocument.appendParagraph("");
                  gradeDocument.appendParagraph("Below is a message from your instructor:");
                  gradeDocument.appendParagraph(instructor_message).setItalic(true);
                }
@@ -313,8 +312,7 @@ function printReportsHandler(e){
                    currentQuestionsRow.appendTableCell("Correct Answer").setBold(true);
            }
             
-            currentQuestionsRow.appendTableCell("Your Score").setBold(true).setWidth(80);
-            currentQuestionsRow.appendTableCell("Points Possible").setBold(true).setWidth(80);
+            currentQuestionsRow.appendTableCell("Score").setBold(true).setWidth(50);
    
       for (var i=1; i < grading_options.length; i++){
           if (grading_options[i] == "") {
@@ -333,20 +331,22 @@ function printReportsHandler(e){
                }
 
               currentQuestionsRow = questionTable.appendTableRow();
-              setCellStyles(currentQuestionsRow.appendTableCell(question_vals[i]).setBold(false),bgcolor);
-              setCellStyles(currentQuestionsRow.appendTableCell(student_subm_vals[i]),bgcolor);
+              cell_content = removeLb(question_vals[i]);
+              setCellStyles(currentQuestionsRow.appendTableCell(cell_content).setBold(false),bgcolor);
+              cell_content = removeLb(student_subm_vals[i]);
+              setCellStyles(currentQuestionsRow.appendTableCell(cell_content),bgcolor);
         
               if (show_answers == 'true') {
-                  setCellStyles(currentQuestionsRow.appendTableCell(answer_key_vals[i]),bgcolor);
+                cell_content = removeLb(answer_key_vals[i]);
+                setCellStyles(currentQuestionsRow.appendTableCell(cell_content),bgcolor);
                }
        
               if (grading_options[i] == GRADING_OPT_SKIP) {
-                  //setCellStyles(currentQuestionsRow.appendTableCell(),bgcolor);
-                  //setCellStyles(currentQuestionsRow.appendTableCell(grade_row_data[i]),bgcolor);
+                  setCellStyles(currentQuestionsRow.appendTableCell("Not Graded"),bgcolor);
               }
               else {
-                  setCellStyles(currentQuestionsRow.appendTableCell(grade_row_data[i]),bgcolor);
-                  setCellStyles(currentQuestionsRow.appendTableCell(getPointsWorth(grading_options[i])),bgcolor);
+                  cell_content = removeLb(grade_row_data[i]+"/"+getPointsWorth(grading_options[i]));
+                  setCellStyles(currentQuestionsRow.appendTableCell(cell_content),bgcolor);
                 }
             }
         }
@@ -356,5 +356,16 @@ function printReportsHandler(e){
 }
 
 function setCellStyles (object,bgcolor){
-   return (object.setPaddingBottom(.002).setPaddingTop(.002).setPaddingLeft(.5).setPaddingRight(.5).setBackgroundColor(bgcolor));
+   return (object.setFontSize(10).setPaddingBottom(.002).setPaddingTop(.002).setPaddingLeft(.5).setPaddingRight(.5).setBackgroundColor(bgcolor));
+}
+
+function removeLb(lb_text){
+  if(typeof lb_text == 'string'){
+       Logger.log('ifed');
+       return (lb_text.replace(/(\r\n|\n|\r)/gm," "));
+  }
+  else{
+       Logger.log('elsed');
+       return lb_text;
+  }
 }
