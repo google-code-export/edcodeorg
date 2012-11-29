@@ -239,6 +239,7 @@
    var end_row = start_row + num_subm - 1;
        
    var num_emails_sent = 0;
+   var num_emails_unsent = 0;
  
    // find out in which column the student's total score is stored.
    var grade_row_pts_index = getGradeRowPointsIndex(grading_options);
@@ -273,11 +274,22 @@
                                                grading_options,
                                                presentation_order,
                                                instructor_message); // grading options
- 
-           MailApp.sendEmail(email_address, msg_title, "",
-                             {htmlBody: msg_body, noReply: true, name: "Assignment Grader"});
-           num_emails_sent += 1;           
+           try 
+             {
+               MailApp.sendEmail(email_address, msg_title, "",
+                                 {htmlBody: msg_body, noReply: true, name: "Flubaroo Grader"});
+               num_emails_sent += 1;           
+             }
+           catch (exception)
+             {
+               // just ignore malformed emails, or email errors.
+               num_emails_unsent += 1; 
+             }
          }
+       else
+         {
+           num_emails_unsent += 1; 
+         } 
    
      }
    
@@ -308,13 +320,17 @@
        msg_body += "</body></html>";
         
        MailApp.sendEmail(user_email_addr, msg_title, "",
-                         {htmlBody: msg_body, noReply: true, name: "Assignment Grader"});
+                         {htmlBody: msg_body, noReply: true, name: "Flubaroo Grader"});
        
        logEmail();
-       
-       Browser.msgBox("Flubaroo Notification",
-                      "Grades were emailed to " + num_emails_sent + " students.",
-                      Browser.Buttons.OK);
+
+       var email_notification = "Grades were successfully emailed to " + num_emails_sent + " students.";
+       if (num_emails_unsent > 0)
+         {
+           email_notification += " Grades were not sent to another " + num_emails_unsent + " students, due to invalid or blank email addresses.";
+         }
+       Browser.msgBox("Flubaroo Notification", email_notification,
+                      Browser.Buttons.OK);  
      }
    else
      {
