@@ -1,0 +1,1582 @@
+// File: grading.gas
+// Description: 
+// This file contains all relevant functions for grading the assignment.
+
+
+ // gradeStep1:
+ // Does the first step of grading the submissions.
+ // Creates the 'Grades' sheet, and allows the user to select options for
+ // each question. Presents 'Continue' button for user to move onto Step 2.
+ function gradeStep1()
+ {   
+
+   //  Before doing anything related to grading, take care of some 
+   //  housekeeping that can't be done in onInstall (unfortuntately)
+   //  because it involves setting properties, which isn't allowed there.
+   setFlubarooUid(); // used for anonymous analytics
+
+   // take note of the current version this user has installed
+   var cver = UserProperties.getProperty("flubaroo_current_version");
+   if ((cver == null) || (cver != gbl_version_str))
+     {
+       UserProperties.setProperty("flubaroo_current_version", gbl_version_str);
+     }
+
+   // Commence grading below this point.
+   
+   // First, do a sanity check. Make sure that the sheet with the submissions
+   // is present.
+   ss = SpreadsheetApp.getActiveSpreadsheet();
+   sheet = getSheetWithSubmissions(ss);
+   if (sheet == null)
+     {
+       Browser.msgBox("Flubaroo Notification", CANNOT_FIND_SUBM_MESSAGE,
+                      Browser.Buttons.OK);
+       return;
+     }
+   
+   // Incase the menu is being accessed from a different sheet, make the sheet
+   // with the submissions the active one.
+   ss.setActiveSheet(sheet);
+     
+   // Next, make sure there are enough rows in this sheet to do grading. We need
+   // one submission, and one answer key, plus the header row (= 3).
+   var num_rows = sheet.getLastRow();
+   if (num_rows < 3)
+     {
+       Browser.msgBox("Flubaroo Notification", "There must be at least "
+                      + "2 submissions to perform grading. Please try again "
+                      + "when more students have submitted their answers.",
+                      Browser.Buttons.OK);
+       return;
+     }
+ 
+   // If there are already grades, make sure the teacher knows that
+   // re-grading will overwrite them.
+   if (getSheetWithGrades(ss) != null)
+     {
+       rv = Browser.msgBox("Flubaroo Notification", "This will replace "
+                           + "your existing grades. Are you sure you "
+                           + "want to continue?",
+                           Browser.Buttons.YES_NO);
+       if (rv != "yes")
+         {
+           return;
+         }
+ 
+     }
+     
+   // give the teacher some notice that we're grading their assignment
+   var wait_app = createPleaseWaitUI(sheet,
+                                    'Flubaroo - Preparing to Grade',
+                                     WAIT_INSTRUCTIONS1);
+   ss.show(wait_app);   
+             
+   // Create and display the Step 1 UI window.
+   app = createStep1UI(sheet);
+   wait_app.close();
+   ss.show(app);
+ 
+   return app;
+ }
+ 
+ function createStep1UI(sheet)
+ {
+   // Show a UI that presents each question. Must be done in a veritically
+   // scrollable window so that all questions can be listed.
+   var app = UiApp.createApplication().setTitle('Flubaroo - Grading Step 1')
+                                      .setWidth("500").setHeight("460");
+   
+   var num_questions = getNumQuestionsFromSubmissions(sheet);
+   var question_vals = singleRowToArray(sheet, 1, num_questions);
+   
+   // Setup the grid, which contains all UI elements.
+   var grid = app.createGrid(num_questions,3).setCellSpacing(5);
+   grid.setWidget(0, 0, app.createLabel('Grading Option'));
+   grid.setWidget(0, 1, app.createLabel('        '));
+   grid.setWidget(0, 2, app.createLabel('Question'));
+ 
+   // Declare the handler that will be called when the 'Cancel' button is
+   // clicked. Not that the 'Continue' button is taken care of by doPost.
+   var handler = app.createServerClickHandler('step1EventHandler');
+ 
+   var click_handler = app.createServerClickHandler('continueButtonClickHandler');
+ 
+   // Loop through all questions asked in the assigment. For each, present some   
+   // options the instructor can set. Also try to guess the best option based
+   // on the content of the question
+   //     (e.g. Q: "Today's Date" -> Option: "Skip Grading").
+   var i = 1;
+   var question = "";
+   var lbox_name = "";
+ 
+   for (i=2; i <= num_questions; i = i + 1)
+     {
+       // Setup a list box. Give the ID a name like 'Q8' (for question 8).
+       // Note that the question number really refers to the column number,
+       // starting from 1, where we skip Q1 (Google timestamp).
+       lbox_name = "Q" + String(i);
+       var lbox = app.createListBox(false).setId(lbox_name).setName(lbox_name);
+       lbox.addItem(GRADING_OPT_1_PT); // default selection
+       lbox.addItem(GRADING_OPT_2_PT);
+       lbox.addItem(GRADING_OPT_3_PT);
+       lbox.addItem(GRADING_OPT_4_PT);
+       lbox.addItem(GRADING_OPT_5_PT);
+       lbox.addItem(GRADING_OPT_STUD_ID);
+       lbox.addItem(GRADING_OPT_SKIP);
+ 
+       // Place the list box into the grid.
+       grid.setWidget(i-1, 0, lbox);
+ 
+       // To ensure we can do something with the selected value when 'Continue'
+       // is clicked, the list box must be registered with the callback handler.
+       handler.addCallbackElement(lbox);
+ 
+       // Display a summary of the question, so the instructor can identify it.
+       question = question_vals[i-1];
+       grid.setWidget(i-1, 2, app.createLabel(createQuestionSummary(question)));
+ 
+       // try to detect the type of question (identifies student / skip / 1 pt).
+       // we'll assume that longer questions must be gradable (academic) ones.
+       // note: we don't push the length check into the functions below for speed
+       // (so that we don't lowercase every question, whe most are gradable anyway.)
+       if (question.length < 35)
+         {
+           question = question.toLowerCase();
+           if (quesIdentifiesStudent(question))
+             {
+               lbox.setSelectedIndex(5);
+             }
+           else if (quesShouldBeSkipped(question))
+             {
+               lbox.setSelectedIndex(6);
+             }
+         }
+       }
+ 
+   // Add in the option (not settable) for Q1: the Google timestamp.
+   ques1_opt = app.createHidden("Q1", "Skip Grading").setId("Q1").setName("Q1");
+     
+   // create the main panel to hold all content in the UI for this step.
+   var main_panel = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px');
+   
+   var hidden_vars = app.createVerticalPanel().setVisible(false);
+     
+   var form = app.createFormPanel().setId('form').setEncoding('multipart/form-data');
+   form.add(main_panel);
+   app.add(form);
+ 
+   // hidden values must be inside of the form to be passed on.
+   hidden_vars.add(ques1_opt);
+     
+   // add a top level hpanel for instructions and picture
+   var hpanel = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '10px')
+       .add(app.createImage(FLUBAROO_WELCOME_IMG_URL))
+       .add(app.createLabel(STEP1_INSTRUCTIONS)
+            .setStyleAttribute('margin-top', '20px'));
+   main_panel.add(hpanel);
+ 
+   // create a panel to hold all the questions. add it to the main panel.
+   var qpanel = app.createSimplePanel()
+      .setStyleAttribute('border-width', '1px')
+      .setStyleAttribute('border-style', 'solid')
+      .setSize('100%', '250').setId('QUESTIONS');
+   main_panel.add(qpanel)
+ 
+   // create a scrollable panel to hold the questions panel.
+   var spanel = app.createScrollPanel().setHeight("100%").setWidth("100%");
+   spanel.add(grid);
+   qpanel.setWidget(spanel);
+     
+   // add the Continue and Cancel buttons at the bottom.
+   var btnGrid = app.createGrid(1, 2).setStyleAttribute('float', 'right');
+   var btnSubmit = app.createButton('Continue',handler).setId('CONTINUE')
+                                                       .addClickHandler(click_handler);
+   btnGrid.setWidget(0,1,btnSubmit);
+   //btnGrid.setWidget(0,2,app.createButton('Cancel',handler).setId('CANCEL'));
+   btnGrid.setWidget(0,0,app.createImage(FLUBAROO_WORKING_IMG_URL).setVisible(false).setId('working'));
+ 
+   main_panel.add(btnGrid);
+     
+   main_panel.add(hidden_vars);
+   
+   return app;
+ }
+ 
+ function continueButtonClickHandler(e)
+ {
+   var app = UiApp.getActiveApplication();
+   
+   var working_img = app.getElementById('working');
+   var continue_button = app.getElementById('CONTINUE');
+   var cancel_button = app.getElementById('CANCEL');
+   
+   if (continue_button)
+     {
+       continue_button.setEnabled(false);
+     }
+   
+   //if (cancel_button)
+   //  {
+   //    cancel_button.setEnabled(false);
+   //  }
+   
+   working_img.setVisible(true);
+   
+   return app;
+ }    
+ 
+       
+ function step1EventHandler(e_step1)
+ {
+   source = e_step1.parameter.source;
+     
+   ss = SpreadsheetApp.getActiveSpreadsheet();
+   sheet = getSheetWithSubmissions(ss);
+        
+   // Close current window.
+   var app = UiApp.getActiveApplication();
+   app.close();
+ 
+   // If continuing, setup and display next UI window.
+   if (source == 'CONTINUE')
+     {
+       //app.getElementById('working').setVisible(true);
+  
+       // Given the input made by the instructor in the Step 1 UI, construct
+       // a Step2 UI to allow them to select the Answer Key row.
+       app2 = createStep2UI(e_step1, sheet);
+       ss.show(app2);
+       //return app2;  // causing an error sometimes
+      
+     }
+   //else // source == 'CANCEL'
+   //  {
+   //    return app; // returning 'app' is causing an error sometimes.
+   //  }
+ }
+ 
+ function createStep2UI(e_step1, sheet)
+ {
+   var app = UiApp.createApplication().setTitle('Flubaroo - Grading Step 2')
+                                      .setWidth("800").setHeight("460");
+   var num_rows = sheet.getLastRow();
+   var num_subm = num_rows - 1;
+   var num_questions = getNumQuestionsFromSubmissions(sheet);
+   
+   var question_vals = singleRowToArray(sheet, 1, num_questions);
+ 
+   // Declare the handler that will be called when the 'Cancel' button is
+   // clicked.
+   var handler = app.createServerClickHandler('step2EventHandler');
+   
+   // Declare a click handler that will be called when a radio button is selected
+   // (clicked). This handler will enable the "Continue" button, to ensure that
+   // the user selects something.
+   var radio_click_handler = app.createServerClickHandler('step2RadioClickHandler');
+   
+   var button_click_handler = app.createServerClickHandler('continueButtonClickHandler');
+ 
+   // Before constructing the UI, we need to gather some important data from
+   // the last step, as well as store some of the data into the Step 2 UI as
+   // hidden variables so we can pass it on.
+   // Things to gather in this step:
+   //    Which questions identify a student (by grading option).
+   // Things to pass on in this step:
+   //    The grading option chosen for each question (from Step1).
+   // Loop through all grading options, and make a list of all questions (col
+   // numbers) that id a student.
+ 
+   var ques_col; // spreadsheet column number, which starts from 1.
+   var question = '';
+   var student_id_cols = new Array();
+ 
+   // Add the hidden option for question 1 (the timestamp).
+   ques1_opt = app.createHidden("Q1", GRADING_OPT_SKIP).setId("Q1")
+                  .setName("Q1");
+     
+   // create the main panel to hold all content in the UI for this step,
+   var main_panel = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px');
+        
+   var hidden_vars = app.createVerticalPanel().setVisible(false);
+     
+   var form = app.createFormPanel().setId('form').setEncoding('multipart/form-data');
+   form.add(main_panel);   
+ 
+   app.add(form);
+ 
+   // hidden values must be inside of the form to be passed on.
+   hidden_vars.add(ques1_opt);
+     
+   // Go through each question.
+   for (ques_col=2; ques_col <= num_questions; ques_col = ques_col + 1)
+     {
+       // pass on grading option as hidden variables.
+       q_id = "Q" + String(ques_col); // e.g. "Q3"
+ 
+       var q_opt = app.createHidden(q_id, e_step1.parameter[q_id]);
+ 
+       hidden_vars.add(q_opt);
+ 
+       // also create list of the questions (columns) which identify a student.
+       if (e_step1.parameter[q_id] == GRADING_OPT_STUD_ID)
+         {
+           // Record this column number.
+           student_id_cols.push(ques_col);
+         }
+     }
+ 
+   // Setup the grid with the list of submissions to pick the Answer Key from.
+   // Each submission will have a radio button next to it, such that one
+   // (and only one) submission can be selected as the Answer Key.
+   var grid = app.createGrid(num_subm+1, student_id_cols.length + 2)
+                 .setCellSpacing(15);
+ 
+   // Start with the header row (grid row 0). This row contains a summary of
+   // the questions which ID a student (e.g. "First Name", "Student ID", ....)
+   grid.setWidget(0, 0, app.createLabel('Select'));
+   grid.setWidget(0, 1, app.createLabel(gbl_lbl_subm_time));
+   for (var index=0; index < student_id_cols.length; index++)
+     {
+       question = question_vals[student_id_cols[index]-1];
+       grid.setWidget(0, index+2,
+                      app.createLabel(createQuestionSummary(question)));
+     }
+ 
+   // Next go through each submission, and write out just the values for
+   // those questions that identify a student, plus the Google timestamp.
+   // To do this, we must first get each column which is associated with a
+   // student identifier. We'll create an array of Ranges called
+   // 'answer_key_cols'for this, where each Range is a single column.
+   var answer_key_cols = new Array();
+   var timestamp_column = sheet.getRange(2, 1, num_rows-1, 1);
+   answer_key_cols.push(timestamp_column);
+ 
+   // get the column associated with each student identifying question.
+   var index = 0;
+   for (index=0; index < student_id_cols.length; index++)
+     {
+       // get 1 column containing all submissions (except spreadsheet header
+       // row) for this question which identifies a student.
+       var single_column = sheet.getRange(2,student_id_cols[index],
+                                          num_subm, 1);
+       answer_key_cols.push(single_column);
+     }
+ 
+   // with all the student identifying columns gathered (vertical step), now
+   // print out their values for each submission (horizontal step).
+   // Here subm_row identifies the spreadsheet row of the submission, skipping
+   // the header row (so '1' is the first actual submission).
+   var subm_row = 0;
+   var text = "";
+   var radio_value = "";
+   
+   for (subm_row=1; subm_row <= num_subm; subm_row = subm_row + 1)
+     {
+       // add radio button for this submission. we'll record the actual
+       // spreadsheet row containing the answer key (so starting from '2').
+       radio_value = String(subm_row+1);
+       var radio_button = app.createRadioButton("answer_key_select")
+                                  .setFormValue(radio_value);
+                                  //.setName("answer_key_select")
+                                  //.setId("answer_key_select")
+       grid.setWidget(subm_row, 0, radio_button);
+       radio_button.addClickHandler(radio_click_handler);
+       //handler.addCallbackElement(radio_button);
+ 
+       // add timestamp for this submission. format it a bit too, to take up less
+       // space.
+       var subm_date = String(answer_key_cols[0].getCell(subm_row, 1).getValue());
+       subm_date = subm_date.split(" GMT")[0];
+       grid.setWidget(subm_row, 1, // after radio button
+                      app.createLabel(subm_date));
+ 
+       // add to the grid responses to student identifying questions.
+       var ques_index;
+       for (ques_index=1; ques_index <= student_id_cols.length; ques_index++)
+         {
+           subm_text = String(answer_key_cols[ques_index].getCell(subm_row, 1).getValue());
+           if (subm_text.length > 40)
+             {
+               // truncate the response and add "..." to the end.
+               subm_text = subm_text.substring(0,40) + " ...";
+             }
+ 
+           grid.setWidget(subm_row, ques_index+1,
+                          app.createLabel(subm_text));
+ 
+         }
+     }
+ 
+   // add a top level hpanel for instructions and picture
+   var hpanel = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '10px')
+       .add(app.createImage(FLUBAROO_WELCOME_IMG_URL))
+       .add(app.createLabel(STEP2_INSTRUCTIONS)
+               .setStyleAttribute('margin-top', '20px'));
+                               
+   main_panel.add(hpanel);
+ 
+   // create a panel to hold all the submissions. add it to the main panel.
+   var subm_panel = app.createSimplePanel()
+      .setStyleAttribute('border-width', '1px')
+      .setStyleAttribute('border-style', 'solid')
+      .setSize('100%', '250').setId('SUBMISSIONS');
+   main_panel.add(subm_panel)
+  
+   // create a scrollable panel to hold the submissions panel.
+   var spanel = app.createScrollPanel().setHeight("100%").setWidth("100%");
+   spanel.add(grid);
+   subm_panel.setWidget(spanel);
+ 
+   // set the proper handler for doPost
+   var h = app.createHidden("handler", "step2").setId("handler").setName("handler");
+   hidden_vars.add(h);
+ 
+   // add the Continue and Cancel buttons at the bottom.
+   var btnGrid = app.createGrid(1, 3).setStyleAttribute('float', 'right');
+   var btnSubmit = app.createSubmitButton('Continue').setId('CONTINUE').setEnabled(false)
+                                                     .addClickHandler(button_click_handler);
+   btnGrid.setWidget(0,0,app.createImage(FLUBAROO_WORKING_IMG_URL).setVisible(false).setId('working'));
+   btnGrid.setWidget(0,1,btnSubmit);
+   //btnGrid.setWidget(0,2,app.createButton('Cancel',handler).setId('CANCEL'));
+ 
+   main_panel.add(btnGrid);
+ 
+   main_panel.add(hidden_vars);
+       
+   return app;
+ }
+ 
+ function step2RadioClickHandler(e_step2)
+ {
+   var app = UiApp.getActiveApplication();
+   
+   var continue_button = app.getElementById('CONTINUE');
+   
+   continue_button.setEnabled(true);
+   
+   return app;
+ }
+   
+ // step2EventHandler:
+ // Process the user selections in 'Step 2' of grading setup.  
+ function step2EventHandler(e_step2)
+ {
+   var source = e_step2.parameter.source;
+  
+   var app = UiApp.getActiveApplication();
+  
+   // If continuing, setup and display next UI window.
+   if (source == undefined)
+     {
+       if (e_step2.parameter.answer_key_select === undefined)
+         {
+           // somehow no answer key was selected. just quit.
+           app.close();
+           return app;
+         }
+            
+       var answer_key_row_num = e_step2.parameter.answer_key_select;
+       
+       // Close current window.
+       app.close();
+ 
+       var ss = SpreadsheetApp.getActiveSpreadsheet();
+       var sheet = getSheetWithSubmissions(ss);
+ 
+       // give the teacher some notice that we're grading their assignment
+       app = createPleaseWaitUI(sheet,
+                                'Flubaroo - Grading Your Assignment',
+                                WAIT_INSTRUCTIONS2);
+       ss.show(app);
+ 
+       // do the grading
+       var num_questions = getNumQuestionsFromSubmissions(sheet);
+       var num_rows = sheet.getLastRow();
+       var num_subm = num_rows - 1;
+     
+       var grading_options = gatherGradingOptions(e_step2, num_questions);
+   
+       var grade_summary = doGrade(ss, num_questions,  num_subm,
+                                   answer_key_row_num, grading_options);
+       
+       // Indicate that the grading has completed.
+       app.close();
+      
+       app = createGradingResultsUI(grade_summary);
+       ss.show(app);
+       
+       return app;
+     }
+   else // CANCEL
+     {
+       app.close();
+       return app;
+     }
+  
+ }
+ 
+ // createPleaseWaitUI:
+ // Creates a simple UI instructing the teacher to wait while their
+ // assignment is being graded. This UI will be replaced once grading
+ // completes.
+ function createPleaseWaitUI(sheet, title, msg)
+ {
+   var app = UiApp.createApplication()
+                      .setTitle(title)
+                      .setWidth("500").setHeight("200");
+  
+   // create the main panel to hold all content in the UI for this step,
+ 
+   var main_panel = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px');
+   app.add(main_panel);
+ 
+   var hpanel_main = app.createHorizontalPanel()
+                .setStyleAttribute('border-spacing', '10px');
+   var vpanel1 = app.createVerticalPanel()
+                .setStyleAttribute('border-spacing', '10px');
+   
+   // add a top level hpanel for instructions and picture
+   var vpanel1 = app.createVerticalPanel()
+       .setStyleAttribute('border-spacing', '10px')
+       .add(app.createImage(FLUBAROO_WELCOME_IMG_URL));
+   
+   
+   var vpanel2 = app.createVerticalPanel()
+                .setStyleAttribute('border-spacing', '10px');
+   
+   var hpanel_r_top = app.createHorizontalPanel()
+                         .setStyleAttribute('border-spacing', '10px')
+                         .add(app.createLabel(msg));
+   var hpanel_r_bot = app.createHorizontalPanel()
+                         .setStyleAttribute('border-spacing', '10px')
+                         .add(app.createImage(FLUBAROO_WORKING_IMG_URL));
+   vpanel2.add(hpanel_r_top);
+   vpanel2.add(hpanel_r_bot);
+    
+     
+   hpanel_main.add(vpanel1);
+   hpanel_main.add(vpanel2);
+ 
+   main_panel.add(hpanel_main);
+ 
+   return app;
+ }
+ 
+ 
+ // createGradingResultsUI:
+ // Display a summary of the grades, and instruct the teacher on how
+ // to view the actual grade sheet.
+ function createGradingResultsUI(grade_summary)
+ {
+   
+   var app = UiApp.createApplication()
+                      .setTitle('Flubaroo - Grading Complete!')
+                      .setWidth("500").setHeight("260");
+  
+   var handler = app.createServerClickHandler('gradingResultsEventHandler');
+ 
+   // create the main panel to hold all content in the UI for this step,
+   var main_panel = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px');
+ 
+   var form = app.createFormPanel().setId('form').setEncoding('multipart/form-data');
+   form.add(main_panel);   
+ 
+   app.add(form);
+ 
+   // add a top level hpanel for instructions and picture
+   var hpanel = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '10px')
+       .add(app.createImage(FLUBAROO_WELCOME_IMG_URL))
+       .add(app.createLabel(RESULTS_MESSAGE1).setStyleAttribute('margin-top', '10px'));
+   var hpanel2 = app.createHorizontalPanel()
+       .add(app.createLabel(RESULTS_MESSAGE2).setStyleAttribute('margin-left', '10px'));
+ 
+   main_panel.add(hpanel);
+   main_panel.add(hpanel2);
+ 
+   // add the button at the bottom.
+   var btnGrid = app.createGrid(1, 1).setStyleAttribute('float', 'right');
+   var btnSubmit = app.createButton('View Grades', handler).setId('VIEW GRADES');
+    
+   btnGrid.setWidget(0,0,btnSubmit);
+   
+   main_panel.add(btnGrid);
+  
+   // add 'Email Grades' option to menu, if not already there.
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+ 
+   createFlubarooMenu(ss);
+ 
+   return app;
+ }
+  
+ function gradingResultsEventHandler(e)
+ {
+   // do nothing (for now anyway)
+   var app = UiApp.getActiveApplication();
+   app.close();
+ 
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var grades_sheet = getSheetWithGrades(ss);
+   ss.setActiveSheet(grades_sheet);  
+  
+   return app;
+ }
+   
+ // gatherGradingOptions: Given the form submissions from Step 2,
+ // goes through each question and extracts the grading option for it.
+ // Returns an array of these, where the first question (actually the
+ // Google timestamp) will be at index 0.
+ function gatherGradingOptions(e_step2, num_questions)
+ {
+   var grading_options = new Array();
+ 
+   var ques_col;
+  
+   for (ques_col=1; ques_col <= num_questions; ques_col = ques_col + 1)
+     {
+       q_id = "Q" + String(ques_col); // e.g. "Q3"
+       grading_options.push(e_step2.parameter[q_id]);        
+     }
+ 
+   return grading_options;
+ }
+
+
+
+ 
+ function doPost(e)
+ {
+   var handler = e.parameter.handler;
+ 
+   if (handler == 'step1')
+     {
+       return step1EventHandler(e);
+     }
+   else if (handler == 'step2')
+     {
+       return step2EventHandler(e);
+     }
+   //else if (handler == 'grading_results')
+   //  {
+   //    return gradingResultsEventHandler(e);
+   //  }
+   else // should never happen
+     {
+       return null;
+     }
+ }
+   
+ // doGrade:
+ // Given the spreadsheet (not just the single sheet), the row containing
+ // the answer key (starts from '2'), and an array of grading options
+ // (index 0 is first question: Google timestamp), perform the grading
+ // of all rows compared to the answer key. Places the grades into a
+ // new sheet called 'Grades'.
+ function doGrade(spreadsheet, num_questions, num_subm,
+                  answer_key_row_num, grading_options)
+ {
+   // start by creating the 'Grades' sheet. if it already exists, then
+   // delete it (teacher was already warned before Step 1).
+   var grades_sheet = getSheetWithGrades(spreadsheet);  
+   if (grades_sheet)
+     {
+       // present, so delete it.
+       spreadsheet.setActiveSheet(grades_sheet);
+       spreadsheet.deleteActiveSheet();
+       
+       // to avoid a bug in which 'Grades' get deleted, but appears to
+       // stick around, switch to another sheet after deleting it.
+       // note: bug still exists sometimes.
+       var switch_to_sheet = getSheetWithSubmissions(spreadsheet);
+       spreadsheet.setActiveSheet(switch_to_sheet);  
+     }
+ 
+   // next, create a blank sheet for the grades.
+   grades_sheet = spreadsheet.insertSheet(gbl_grades_sheet_name);
+   
+   var submissions_sheet = getSheetWithSubmissions(spreadsheet);
+
+   // Enter enough blank rows into the new Grades sheet. It
+   // starts with 100, but we may need more. Not having enough
+   // causes an error when trying to write to non-existent rows.
+   var num_blank_rows_needed = gbl_grades_start_row_num + 1 
+                               + submissions_sheet.getLastRow() 
+                               + gbl_num_space_before_hidden 
+                               + gbl_num_hidden_rows 
+                               + 10; // extra 10 for good measure
+   
+   if (num_blank_rows_needed > 100)
+     {
+       grades_sheet.insertRows(1, num_blank_rows_needed - 100);
+     }
+   
+   // collect the answers from the Answer Key row. make all lowercase so we're
+   // case insentive when comparing to text submissions.
+   var answer_key_vals = singleRowToArray(submissions_sheet,
+                                          answer_key_row_num, num_questions);
+   var answer_key_vals_orig = answer_key_vals; // save a copy of the non-lc answers.
+   
+   for (var i=0; i < answer_key_vals.length; i++)
+     {
+       if (typeof answer_key_vals[i] == 'string')
+         {
+           answer_key_vals[i] = strTrim(answer_key_vals[i].toLowerCase());
+         }
+     }
+   
+   // capture the row of questions from the submissions sheet so we can
+   // echo it at the top of the grades sheet.
+   var question_vals = singleRowToArray(submissions_sheet, 1, num_questions);
+   question_vals[0] = gbl_lbl_subm_time;
+  
+   // create an area at the top of this sheet where the grades
+   // summary will go after grading is done.
+   setCellValue(grades_sheet, 1, 1, "Summary:");
+   grades_sheet.getRange(1, 1, 1, 1).setFontWeight("bold");
+   setCellValue(grades_sheet, 2, 1, "Points Possible");
+   setCellValue(grades_sheet, 3, 1, "Average Points");
+   setCellValue(grades_sheet, 4, 1, "Counted Submissions");
+   setCellValue(grades_sheet, 5, 1, "Number of Low Scoring Questions");
+   
+   // decide on the order each row of grades should be written out in. this is
+   // done so that all questions which identify a student will come first, followed
+   // by their score and number of times submitted, followed by the points for
+   // each question. this is purely for presentation purposes, so that the teacher
+   // can easily see (and copy/paste) the student info and their score.
+   var presentation_order = getPresentationOrderInternal(grading_options);
+   
+   // create the row which has a summary of each question asked,
+   // and a columns for the student's total score and number of times submitted.
+   var added_index = 0;
+ 
+   // write out a row of headers that label each column.
+   var headers = new Array(question_vals.length);
+   for (var ques_index=0; ques_index < num_questions; ques_index++)
+     {
+       headers[ques_index] = createQuestionSummary(question_vals[ques_index]);
+     }
+      
+   // append a few extra fields, which we'll use to store the stats for each 
+   // graded submission. 
+   headers.push("Total Points");
+   headers.push("Percent");
+   headers.push("Submission Row");
+   headers.push("Times Submitted");
+      
+   // write out the header row (in presentation order)
+   writeSubmGrades(grades_sheet, presentation_order, headers,
+                   gbl_grades_start_row_num, "");
+   
+   // bold the headers row
+   var header_row = grades_sheet.getRange(gbl_grades_start_row_num,
+                                          1, 1, headers.length);
+   header_row.setFontWeight("bold");
+   
+   // all_fingerprints: This is an array of unique identifiers (or
+   // 'fingerprints') for each student. For example, Sally Smith with
+   // student id 12435 might have a fingerprint of: sallysmith12345.
+   // Even if a student submits their answers multiple times, they will
+   // only have one entry into this array (assuming they used the same name).
+   // As such, the all_fingerprints.length tells us the number of final
+   // submissions to be counted for this assignment.
+   // The fingerprints are used as an index into all_grades.
+   var all_fingerprints = new Array();
+ 
+   // all_grades: An associative array, indexed by student fingerprints,
+   // that stores the grades for that student's submissions. The grades
+   // themselves are stored as an array, which includes scores, and are the
+   // result of calling calcSubmGrades(...).
+   var all_grades = new Array();
+  
+   // go through each student submission, and calculate and record
+   // the grades and write them out.
+   var subm_row_num;
+ 
+   var perc_correct = new Array();
+   var grades_to_write;
+   var avg_subm_score = 0;
+   var points_possible = 0;
+   var num_student_identifiers = 0;
+  
+   // Init the perc_correct array. For each question, this gives the percent
+   // of students that got each question correct.
+   // We also tally a sum of the number of points possible.
+   // While at it, also grab a count of the number of student idenfiers.
+   for (var q_index=0; q_index < num_questions; q_index++)
+    {
+      if (grading_options[q_index] == GRADING_OPT_STUD_ID)
+        {
+          num_student_identifiers++;
+        }
+      
+      if (isGradeableQuestion(grading_options[q_index]))
+        {
+          points_possible += getPointsWorth(grading_options[q_index]);
+          perc_correct[q_index] = 0;
+        }
+      else
+        {
+          perc_correct[q_index] = "";
+        }
+    }
+   
+   for (var s=1; s <= num_subm; s++)
+    {
+      subm_row_num = s+1;
+      
+      if (subm_row_num == answer_key_row_num)
+        {
+          // No need to include the answer key in the grades,
+          // so skip it.
+          continue;
+        }
+           
+      // Perform the actual grading.
+      var subm_grades_vals = calcSubmGrades(submissions_sheet, answer_key_vals,
+                                            subm_row_num, grading_options, 
+                                            points_possible);
+      
+      // add a last column to record the number of times this student has made
+      // a submission.
+      subm_grades_vals.push(1); // place holder value.
+          
+      // Create a fingerprint to uniquely identify this student.
+      // Then check if we have already seen a submission from them in this
+      // spreadsheet.
+      var fingerprint = createSubmFingerprint(submissions_sheet,
+                                              subm_row_num, num_questions,
+                                              grading_options);
+      
+      if (fingerprint in all_grades)
+        {
+          // This is a second (or third, ...) submission from a student.
+          // If this submission is newer than the last one seen, replace it.
+          var existing_grades = all_grades[fingerprint];
+          var existing_timestamp = new Date(existing_grades[0]);
+          var new_timestamp = new Date(subm_grades_vals[0]);
+          
+          if (new_timestamp > existing_timestamp)
+            {
+              subm_grades_vals[subm_grades_vals.length - 1] = existing_grades[existing_grades.length - 1];
+              all_grades[fingerprint] = subm_grades_vals;
+            }
+   
+          // whether we replaced an entry or not, we still want to increment
+          // the number of submissions.
+          existing_grades = all_grades[fingerprint];
+          existing_grades[existing_grades.length - 1] += 1;
+          all_grades[fingerprint] = existing_grades;
+        }
+      else
+        {
+          // This is the first time we've seen a submission from this student.
+          // There's no need to compare submission timestamp.
+          all_grades[fingerprint] = subm_grades_vals;
+          all_fingerprints.push(fingerprint);
+        }
+    }
+     
+   // go through all the submissions and write out the grades.
+   // also calculate the average score for each question, and
+   // the average score per submission.
+   
+   // Write out all the submision grades. To make sure we write only
+   // the final grades (e.g. counting multiple submissions), we walk
+   // through the array of unique student fingerprints.
+   var s;
+   var write_start_row = gbl_grades_start_row_num + 1; // first row into which to write grades
+   var num_subm = all_fingerprints.length;
+       
+   // histogram_buckets: Array of points_possible buckets, each containing how many
+   // submissions had that number of points for its score. Init all to 0.
+   var histogram_buckets = new Array(points_possible + 1); // from 0 to points_possible
+   var histogram_len = histogram_buckets.length;
+   while (--histogram_len >= 0)
+     {
+       histogram_buckets[histogram_len] = 0;
+     }
+   
+   var subm_score = 0;
+   var row_colors = new Array(2);
+   row_colors[0] = "#FFFFCC";
+   row_colors[1] = ""; // white
+  
+   for (s=0; s < num_subm; s++)
+    {
+      subm_row_num = s+2; // first submission always at row "2"
+                          // (row 1 is spreadsheet header row)
+     
+      var fingerprint = all_fingerprints[s];
+      grades_to_write = all_grades[fingerprint];
+ 
+      writeSubmGrades(grades_sheet, presentation_order,
+                      grades_to_write, write_start_row + s,
+                      row_colors[s % 2]);
+
+      // The total score is in the column of grades_to_write that immediately
+      // follows the last question's score (so index is 'num_questions').
+      subm_score = grades_to_write[num_questions];
+
+      if (((subm_score * 1.0) / points_possible) < 0.7)
+        {
+          grades_sheet.getRange(write_start_row + s, 2,
+                                1, num_student_identifiers + gbl_num_additional_grades_cols)
+                      .setFontColor("#e05252");
+        }
+      
+      
+      // Keep track of percent of submissions that got each
+      // question correct. This will be printed in the bottom row.
+      for (var q_index=0; q_index < num_questions; q_index++)
+        {
+          if (isGradeableQuestion(grading_options[q_index]))
+            {
+              if (grades_to_write[q_index] > 0)
+                {
+                  perc_correct[q_index] += 1;
+                }
+            }
+        }
+      
+      // Calculate an average score for all submissions.
+      avg_subm_score += subm_score;
+      histogram_buckets[subm_score] += 1;
+    }
+ 
+   // add a row with the percent of the class that got each question correct.
+   var percent_correct_row = write_start_row + s + 1;
+   var num_low = calculateAndRecordPercentages(grades_sheet, presentation_order,
+                                               num_questions, num_subm,
+                                               perc_correct, percent_correct_row,
+                                               grading_options);
+  
+   // add 4 secret, hidden rows.
+   // the first will contain the grading option selected for each question.
+   // the second will have a single entry, which is a delimited list of 
+   // "goodies" that can be used by other functions later on (e.g. the URL of
+   // the historgram).
+   // the third contains the full (non-truncated) list of questions asked, written
+   // out in presentation order.
+   // the fourth contains the full list of answer key values, written out in 
+   // presentation order.
+   var hidden_row_num_start = percent_correct_row + gbl_num_space_before_hidden; // several rows down, to help further hide it
+   
+   // write out the grading options in "presentation order", so each ends up in 
+   // the same column as the question it was for.
+   writeSubmGrades(grades_sheet, presentation_order,
+                   grading_options, hidden_row_num_start, "");     
+  
+   // Now write out the goodies, one row further down. 
+   // Note: We do these are space-separated in a single cell, so that
+   // this row will never be longer than the grading options row. This is
+   // important, since the latter is used to calculate how many questions 
+   // there were (see function getNumQuestionsFromGrades).
+   
+   var goodies = answer_key_row_num + " " + num_subm + " ";
+   goodies = goodies + formHistogramURL(num_subm, histogram_buckets);
+   setCellValue(grades_sheet, hidden_row_num_start+1, 1, goodies);                            
+   
+   // Finally, write out the presentation_order array, so we can know
+   // later on how the columsn were reordered.
+   var orig_col;
+   var pres_col;
+   var row_values = new Array(presentation_order.length);
+   for (pres_col=0; pres_col < presentation_order.length; pres_col++)
+     {
+       orig_col = presentation_order[pres_col] + 1; // +1 for index to column
+       row_values[pres_col] = orig_col;
+     }
+   writeArrayToRow(grades_sheet, hidden_row_num_start+2, row_values);
+   
+   // update the summary of grades at the top.
+   avg_subm_score = avg_subm_score / num_subm;
+   avg_subm_score = floatToPrettyText(avg_subm_score);
+ 
+   setCellValue(grades_sheet, 2, 2, points_possible);
+   setCellValue(grades_sheet, 3, 2, avg_subm_score);
+   setCellValue(grades_sheet, 4, 2, all_fingerprints.length);
+   setCellValue(grades_sheet, 5, 2, num_low);
+   
+   // with everything now written out in 'Grades', grab the new-style 
+   // grading_options (written out in presentation order in a hidden
+   // row)
+   var new_grading_options = getGradingOptionsFromGrades(grades_sheet);
+   
+   // hide the hidden rows
+   grades_sheet.hideRows(hidden_row_num_start,3);
+   
+   // Hide the column containing the Submission Row. This really isn't meant for
+   // presentation. It's just needed by the email function, so we can include the
+   // student's original answer.
+   var col_to_hide = getGradeRowSubmRowIndex(new_grading_options) + 1;
+   grades_sheet.hideColumns(col_to_hide,1);
+   
+   // Keep track (anonymously) of number of assignments graded
+   // using Flubaroo. Try to not count the "try it now" sample
+   // in this total, though.
+   logGrading(spreadsheet.getName()); 
+   
+   return '';
+ }
+ 
+ // calculateAndRecordPercentages:
+ // Calculates the percent of the submissions (students) that got each
+ // question correct. Then write these percentages out in the final row,
+ // highlighting any in orange that are < 60%.
+ function calculateAndRecordPercentages(grades_sheet, presentation_order,
+                                        num_questions, num_subm,
+                                        perc_correct, percent_correct_row,
+                                        grading_options)
+ {   
+   var num_low = 0;
+   
+   // just for printing purposes, need to have some extra
+   // empty cells for the added "Total Score", etc, columns.
+   // This is a consequence of hijacking writeSubmGrades to
+   // write out these percentages.
+   for (var i=0; i < gbl_num_additional_grades_cols; i++)
+     {
+       perc_correct.push("");
+     }
+   
+   for (var q_index=0; q_index < num_questions; q_index++)
+     {
+       if (isGradeableQuestion(grading_options[q_index]))
+         {
+           perc_correct[q_index] = 100 * (perc_correct[q_index]) / num_subm;
+           perc_correct[q_index] = floatToPrettyText(perc_correct[q_index]);
+         }
+     }
+ 
+   // write out the final row, which contains the percent of students
+   // who got each question correct.
+   perc_correct[0] = "Percent Correct:";
+ 
+   writeSubmGrades(grades_sheet, presentation_order,
+                   perc_correct, percent_correct_row, "");
+ 
+   // change the background color of any question for which less than 60% of the
+   // class got it correct.
+   var low_avg_score_color = "orange";
+   
+   // grab the percentages, as written out in their presentation order
+   percentage_row = singleRowToArray(grades_sheet, percent_correct_row, -1);
+   var perc = 0.0
+       
+   for (var c_index=0; c_index < percentage_row.length; c_index++)
+     {
+       perc = parseFloat(percentage_row[c_index]);
+       
+       if ((!isNaN(perc)) && (perc < 60.0))
+         {
+           num_low++;
+           
+           // find in which column this question resides in the presented grades.
+           setCellColor(grades_sheet, gbl_grades_start_row_num, c_index+1, low_avg_score_color);
+           setCellColor(grades_sheet, percent_correct_row, c_index+1, low_avg_score_color);
+         }
+     }
+ 
+   return num_low;
+ }
+ 
+ 
+// getPresentationOrder:
+// Even though questions are graded in the same order that they appear (left to right)
+// in the Student Submissions sheet, we ultimately display them in a different order
+// in the Grades sheet for convinience. The student identifiers come first, followed
+// by columns like total score, and number of submissions, and finally then questions
+// that were skipped, and those worth points.
+// This function returns an array containing the true location (w.r.t the original grading)
+// of each item. For example, presentation_order[4] = 2 means that the data for question (col) #5
+// (according to the Student Submissions) will be placed in column 3 in the Grades sheet
+// after the grading is done and the results are rendered (presented).
+
+// Note that the grading options in the hidden row correspond to the original order
+// of questions.
+function getPresentationOrder(grades_sheet)
+{  
+   var grading_options = getGradingOptionsFromGrades(grades_sheet) 
+ 
+   return getPresentationOrderInternal(grading_options);  
+}
+
+// getPresentationOrderInternal:
+// For use only by doGrade, since the hidden row containing the grading options doesn't 
+// exist yet when that is run.
+function getPresentationOrderInternal(grading_opt)
+{
+  var presentation_order = new Array(grading_opt.length + gbl_num_additional_grades_cols);
+   
+   presentation_order[0] = 0; // Timestamp. Always first. Has grading option of GRADING_OPT_SKIP.
+   var pres_loc = 1;
+ 
+   // first go through and locate all the questions which identify a student. those go first.
+   for (var i=1; i < grading_opt.length ; i++)
+     {
+       if (grading_opt[i] == GRADING_OPT_STUD_ID)
+         {
+           presentation_order[pres_loc] = i;
+           pres_loc++;
+         }
+     }
+ 
+   // next up are the added columns for total score, number of submissions, etc (anything other than
+   // individual question scores). During the grading process, these were appended to the end of each
+   // row (after all the scores).
+   for (var i=0; i < gbl_num_additional_grades_cols; i++)
+     {
+       presentation_order[pres_loc] = grading_opt.length + i;
+       pres_loc++;
+     }
+ 
+   // everything else (skipped questions, questions worth points) follows.
+   for (var i=1; i < grading_opt.length ; i++)
+     {
+       if (grading_opt[i] != GRADING_OPT_STUD_ID)
+         {
+           presentation_order[pres_loc] = i;
+           pres_loc++;
+         }
+     }
+ 
+   return presentation_order;
+ }
+
+
+ function formHistogramURL(num_subm, histogram_buckets)
+ {
+   var max_val = 0;
+   for (var i=0; i < histogram_buckets.length; i++)
+     {
+       if (histogram_buckets[i] > max_val)
+         {
+           max_val = histogram_buckets[i];
+         }
+     }
+   
+   var url = "http://chart.apis.google.com/chart?chxt=x,y,x,y&chbh=a,0,0&chs=650x280";
+   url += "&cht=bvg&chco=6699ff&chtt=Histogram%20of%20Grades";
+   
+   url += "&chds=0," + max_val + "&chxr=1,0," + max_val + ",1";
+   url += "&chxl=0:";
+ 
+   var points_possible = histogram_buckets.length - 1;
+   for (var i=0; i <= points_possible; i++)
+     {
+       url += "%7C" + String(i);
+     }
+ 
+   //url+= "|2:|Points%20Scored|3:|Submissions&chxp=2,50|3,50";
+   url+= "%7C2:%7CPoints%20Scored%7C3:%7CSubmissions&chxp=2,50%7C3,50";
+ 
+ 
+   url += "&chd=t:";
+   
+   for (var i=0; i <= points_possible; i++)
+     {
+       url += histogram_buckets[i];
+       if (i < (points_possible))
+         {
+           url += ",";
+         }
+      
+     }
+   
+   return url;
+   
+ }
+ 
+
+
+ 
+ 
+ 
+ // calcSubmGrades:
+ // Perform grade calculation for a single student submission.
+ // Takes a reference to the submissions_sheet, the answer key
+ // (answers for each question), the row containing the submission
+ // to grade, and also the grading options for each question.
+ // Returns: A graded array of values, each entry in which corresponds
+ // to a question (starting from the Google timestamp).
+ // Questions that identify a student will have the student's original
+ // submission as the entry (so this can be written out in the grade).
+ // Questions that were not graded will have 'Not Graded' as their value
+ // in the array.
+ // There will also be 2 added columns with the student's total score as
+ // points and percent.
+ // Example:
+ //   [<timestamp>, 'Sally Smith', '12345', 'Not Graded', 1, 1, 0, 2]
+ function calcSubmGrades(submissions_sheet, answer_key_vals,
+                         subm_row_num, grading_options,
+                         points_possible)
+ {
+   var subm_grades_vals = new Array();
+  
+   var num_ques = answer_key_vals.length;
+   
+   var submission_vals = singleRowToArray(submissions_sheet,
+                                          subm_row_num, num_ques);
+   
+   var score = 0;
+   var percent = 0.0;
+   
+   // compare the student's submission to each question to the same
+   // submission in the answer key, subject to the grading options.
+   var lc_answer;
+   var pts_worth;
+   var anskey_val_list;
+   var anskey_val;
+   
+   for (var q_index=0; q_index < num_ques; q_index++)
+     {
+       var grade_val;
+       
+       if (grading_options[q_index] == GRADING_OPT_SKIP)
+         {
+           if (q_index == 0)
+             {
+               // This is the Google timestamp. We don't grade it, but
+               // we make sure to echo it back in the grades.
+               grade_val = submission_vals[0];
+             }
+           else
+             {
+               // Teacher indicated to skip grading on this question
+               grade_val = "Not Graded";
+             }
+         }
+       else if (grading_options[q_index] == GRADING_OPT_STUD_ID)
+         {
+           // Identifies student, or Google timestamp. Just echo it.
+           grade_val = submission_vals[q_index];
+         }
+       else // Question that is worth points. Grade it!
+         {
+           grade_val = 0; // default value is 0 points
+           
+           lc_subm = submission_vals[q_index];
+           if (typeof lc_subm == 'string')
+             {
+               // lowercase, and clear off any leading or trailing whitespace from the
+               // submissions.
+               // Note that answer key values were previously lowercased before passing
+               // to this function.
+               lc_subm = strTrim(lc_subm.toLowerCase());
+             }
+           
+           if (typeof answer_key_vals[q_index] == 'string')
+             {
+                anskey_val_list = answer_key_vals[q_index].split(" %or ");          
+             }
+           else
+             {
+               // answer is a numeric value and not a string (e.g. 1850 vs "1850"). 
+               // can't split a number. keep as current type.
+               anskey_val_list = new Array(1);
+               anskey_val_list[0] = answer_key_vals[q_index];
+             }
+           
+           // Loop through possible correct answers to this question (typically
+           // just one). Compare each to the submission.
+           for (var i=0; i < anskey_val_list.length; i++)
+             {
+               anskey_val = anskey_val_list[i];
+               if (lc_subm == anskey_val)
+                 {
+                   // correct answer!
+                   pts_worth = getPointsWorth(grading_options[q_index]);
+                   grade_val = pts_worth;
+                   score += pts_worth;
+                   break;
+                 }
+             }
+        }
+       
+       subm_grades_vals.push(grade_val);
+     }
+   
+   // append the score in points and percent
+   subm_grades_vals.push(score);
+   percent = (score * 100) / points_possible;
+   percent = floatToPrettyText(percent) + '%';
+   subm_grades_vals.push(percent);
+   
+   // also record the row in 'Student Submissions' of this subm.
+   subm_grades_vals.push(subm_row_num);
+   
+   return subm_grades_vals;
+ }
+ 
+ 
+ // writeSubmGrades: Batch write out an entire row of grades / answers
+ // for all questions. Uses 'presentation_order' to indicate the order
+ // in which the actual values (in subm_grades_vals) should be written
+ // out (e.g. student identifiers get grouper together in the first
+ // columns). Also writes out extra columns like 'Total Score'.
+ function writeSubmGrades(grades_sheet, presentation_order,
+                          subm_grades_vals, write_row_num,
+                          color)
+ {
+   var row_to_write = new Array(presentation_order.length);
+   var c;
+     
+   for (var i=0; i < presentation_order.length; i++)
+     {
+       c = presentation_order[i];
+       if (c > subm_grades_vals.length -1)
+         {
+           /* handles doGrade case, when we write out the grading options. */
+           row_to_write[i] = "";
+         }
+       else
+         {
+           row_to_write[i] = subm_grades_vals[c];
+         }
+     }
+   
+   var row_range = grades_sheet.getRange(write_row_num, 1, 1, presentation_order.length);
+   var set_of_rows = new Array(1);
+   set_of_rows[0] = row_to_write;
+   row_range.setValues(set_of_rows);
+   
+   if (color)
+     {
+       row_range.setBackgroundColor(color);
+     }
+ }
+
+  
+ // createSubmFingerprint:
+ // Given a graded entry, creates a unique fingerprint based on the
+ // questions which identify a student. For example, if the following
+ // entries identified a student:
+ //   'Sally Smith', '12345'
+ // the fingerprint would look like:
+ //   'sallysmith12345'
+ // The idea is that if a student makes more than one submission, each
+ // should have the same fingerprint so that their second submission
+ // can be identified.
+ // If there are no questions that identify a student, this function will
+ // return ''.
+ function createSubmFingerprint(submissions_sheet, subm_row_num,
+                                num_questions, grading_options)
+ {
+   var fingerprint = '';
+    
+   var submission_vals = singleRowToArray(submissions_sheet,
+                                          subm_row_num, num_questions);
+ 
+   for (var q_index=0; q_index < num_questions; q_index++)
+     {
+       if ((q_index != 0) && (grading_options[q_index] == GRADING_OPT_STUD_ID))
+         {
+           var val = submission_vals[q_index];
+           if (val == "")
+             {
+               continue;
+             }
+           
+           if (typeof val == 'string')
+             {
+               val = val.toLowerCase();
+             }
+           else
+             {
+               val = val.toString();
+               val = val.toLowerCase();
+             }
+           
+           fingerprint = fingerprint + val;
+         }
+     }
+   
+   return fingerprint;
+ }
+ 
+
+
+ 
+ // createQuestionSummary
+ // Returns the text of the question from the header row for the question. 
+ //  If too long, truncates the question text and adds "...".
+ function createQuestionSummary(question)
+ {
+   if (question.length > 40)
+     {
+       // truncate the question and add "..." to the end.
+       question = question.substring(0,40) + " ...";
+     }
+ 
+   return question;
+ }
+ 
+ // quesShouldBeSkipped:
+ // Takes the full text of a question (should be lowercased first),
+ // and returns if this question should not be graded (e.g. "Today's Date:")  
+ function quesShouldBeSkipped(ques)
+ {  
+   if (ques.indexOf('date') != -1)
+     {
+       return true;
+     }
+ 
+   return false;
+ }  
+ 
+                    
+ // quesIdentifiesStudent:
+ // Takes the full text of a question (should be lowercased first),
+ // and examines the content to guess if this question is a means of
+ // identifying a student (e.g. "First Name")                 
+ function quesIdentifiesStudent(ques)  
+ {      
+   if (ques.indexOf('first') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('last') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('name') != -1)
+     {
+       return true;
+     }
+ 
+   else if (ques == 'id')
+     {
+       return true;
+     }
+ 
+   var id_index = ques.indexOf('id');
+   if (id_index != -1)
+     {
+       if (id_index > 0)
+         {
+           if (ques[id_index-1] == ' ')
+             {
+               // e.g. "student id"
+               return true;
+             }
+         }
+     }                 
+   else if (ques.indexOf('id:') != -1)
+     {
+       // e.g. student id:
+       return true;
+     }
+   else if (ques.indexOf('identity') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('identifier') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('class') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('section') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('period') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('room') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('student') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('teacher') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('email') != -1)
+     {
+       return true;
+     }
+   else if (ques.indexOf('e-mail') != -1)
+     {
+       return true;
+     }
+   return false;
+ }
+
+// isGradeableQuestion:
+// Given a grading option, returns true if the grading option indicates
+// that this question is worth points, and so can be graded. Returns
+// false otherwise.
+function isGradeableQuestion(grade_opt)
+{
+  if (grade_opt == GRADING_OPT_1_PT)
+    {
+      return true;
+    }
+  else if (grade_opt == GRADING_OPT_2_PT)
+    {
+      return true;
+    }
+  else if (grade_opt == GRADING_OPT_3_PT)
+    {
+      return true;
+    }
+  else if (grade_opt == GRADING_OPT_4_PT)
+    {
+      return true;
+    }
+  else if (grade_opt == GRADING_OPT_5_PT)
+    {
+      return true;
+    }
+  else
+    {
+      return false;
+    }
+}
+
+// getPointsWorth:
+// Given a grading option that indicates a number of points (e.g. GRADING_OPT_2_PT)
+// returns a corresponding integer for the number of points it's worth
+// (2, in this example).
+function getPointsWorth(grade_opt)
+{
+  if (grade_opt == GRADING_OPT_1_PT)
+    {
+      return 1;
+    }
+  else if (grade_opt == GRADING_OPT_2_PT)
+    {
+      return 2;
+    }
+  else if (grade_opt == GRADING_OPT_3_PT)
+    {
+      return 3;
+    }
+  else if (grade_opt == GRADING_OPT_4_PT)
+    {
+      return 4;
+    }
+  else if (grade_opt == GRADING_OPT_5_PT)
+    {
+      return 5;
+    }
+  else
+    {
+      return 0; // should never happen!
+    } 
+}

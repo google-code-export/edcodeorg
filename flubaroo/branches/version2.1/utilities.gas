@@ -1,0 +1,396 @@
+// File: utilities.gas
+// Description: 
+// This file contains helper functions for a variety of purposes, as
+// well as the functions that handle script installation and menu setup.
+
+ // onInstall: 
+ // Gets called when script is first installed.
+ // Sets up menu (really just calls onOpen() ).
+ function onInstall()
+ {
+   onOpen();
+   
+   showNewVersionNotice();
+ }  
+   
+ // onOpen:
+ // Gets called when the spreadsheet is opened.
+ // Sets up the menu and shows a notification.
+ function onOpen()
+ {
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+ 
+   createFlubarooMenu(ss);
+ 
+   // Rename "Sheet1" something more friendly to enhance useability.
+   var status = renameSubmissionsSheet();
+ }
+
+
+ function createFlubarooMenu(ss)
+ {
+   var grades_present = false;
+   
+ 
+   if (getSheetWithGrades(ss) != null)
+     {
+       grades_present = true;
+     }
+ 
+   var menuEntries = [];
+ 
+   if (grades_present)
+     {
+       menuEntries.push({name: "Regrade Assignment", functionName: "gradeStep1"});
+       menuEntries.push({name: "Email Grades", functionName: "emailGrades"});
+       menuEntries.push({name: "Save Individual Reports", functionName: "printReports"});
+       menuEntries.push({name: "View Report", functionName: "viewReport"});
+     }
+   else
+     {
+       menuEntries.push({name: "Grade Assignment", functionName: "gradeStep1"});
+       //{name: "Set Due Date", functionName: "setDueDate"},
+     }
+   
+   menuEntries.push(null);
+   menuEntries.push({name: "About Flubaroo", functionName: "aboutFlubaroo"});  
+     
+   ss.addMenu(gbl_menu_name, menuEntries);   
+ }
+
+
+ // createPleaseWaitUI:
+ // Creates a simple UI instructing the teacher to wait while their
+ // assignment is being graded. This UI will be replaced once grading
+ // completes.
+ function aboutFlubaroo()
+ {  
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var app = UiApp.createApplication()
+                      .setTitle("About Flubaroo")
+                      .setWidth("500").setHeight("200");
+  
+   // create the main panel to hold all content in the UI for this step,
+   var main_panel = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px');
+   app.add(main_panel);
+ 
+   var hpanel_main = app.createHorizontalPanel()
+                .setStyleAttribute('border-spacing', '10px');
+   var vpanel1 = app.createVerticalPanel()
+                .setStyleAttribute('border-spacing', '10px');
+   
+   // add a top level hpanel for instructions and picture
+   var vpanel1 = app.createVerticalPanel()
+       .setStyleAttribute('border-spacing', '10px')
+       .add(app.createImage(FLUBAROO_WELCOME_IMG_URL));
+   
+   
+   var vpanel2 = app.createVerticalPanel()
+                .setStyleAttribute('border-spacing', '10px');
+   
+   var hpanel_r_top = app.createHorizontalPanel()
+                         .setStyleAttribute('border-spacing', '3px')
+                         .add(app.createLabel("Flubaroo - " + gbl_version_str));
+   var hpanel_r_mid = app.createHorizontalPanel()
+                         .setStyleAttribute('border-spacing', '3px')
+                         .add(app.createLabel(ABOUT_FLUBAROO_MSG1));
+   var hpanel_r_bot = app.createHorizontalPanel()
+                         .setStyleAttribute('border-spacing', '3px')
+                         .add(app.createLabel(ABOUT_FLUBAROO_MSG2));
+   vpanel2.add(hpanel_r_top);
+   vpanel2.add(hpanel_r_mid);
+   vpanel2.add(hpanel_r_bot);
+    
+     
+   hpanel_main.add(vpanel1);
+   hpanel_main.add(vpanel2);
+ 
+   main_panel.add(hpanel_main);
+ 
+   ss.show(app);
+   
+   logAboutFlubaroo();
+ }
+ 
+
+// strTrim:
+// Trims the whitespace before and after the string.
+// Necessary b/c sometimes cells from Form submissions have extra whitespace
+// at the beginning for some reason, leading to "wrong" answers when graded.
+function strTrim(str) {
+  return str.replace(/^\s+|\s+$/g,"");
+}
+
+ // setCellValue:
+ // Given a reference to a sheet, and a row and column number (starts  
+ // from 1), writes the value given into the cell specified by the row
+ // and column.
+ function setCellValue(sheet, row, col, value)
+ {
+   single_cell = sheet.getRange(row, col, 1, 1);
+   single_cell.setValue(value);
+ }
+ 
+ // getCellValue
+ // Given a reference to a sheet, and a row and column number (starts
+ // from 1), returns the value given in the cell specified by the row
+ // and column.
+ function getCellValue(sheet, row, col)
+ {
+   var single_cell = sheet.getRange(row, col, 1, 1);
+   return single_cell.getValue();
+ }
+ 
+ // setCellColor
+ // Given a reference to a sheet, and a row and column number (starts  
+ // from 1), changes the background color (to the value specified)
+ // for the cell in the row and col given.
+ function setCellColor(sheet, row, col, color)
+ {
+   single_cell = sheet.getRange(row, col, 1, 1);
+   single_cell.setBackgroundColor(color);
+ }
+   
+function singleRowToArray(sheet, row_num, num_cols)
+ {
+   var row_array = new Array();
+   var val;
+ 
+   if (num_cols == -1)
+     {
+       // maybe this should just be the default, and I should not even 
+       // bother with 'num_cols' as an argument? just a thought to simplify 
+       // the code. - DA 8/25/11
+       num_cols = sheet.getLastColumn();
+     }
+   
+   // grab a single row from the sheet as a 'Range' type.
+   var row_from_sheet = sheet.getRange(row_num, 1, 1, num_cols);
+ 
+   var values = row_from_sheet.getValues();
+   var nc = row_from_sheet.getNumColumns();
+   
+   // extract the value in each cell, and stick into the row_array.
+   for (var c=0; c < nc; c++)
+     {
+       val = values[0][c];
+       row_array.push(val);
+     }
+ 
+   return row_array;
+ }
+
+// writeArrayToRow:
+// Given an array of values, writes it out to the row of the sheet specified.
+// Row ids start from 1. Note that this will override any pre-existing content
+// in the affected cells of that row.
+// The row need not exist ahead of time.
+function writeArrayToRow(sheet, row_num, row_values)
+{
+   var row_range = sheet.getRange(row_num, 1, 1, row_values.length);
+   var set_of_rows = new Array(1);
+   set_of_rows[0] = row_values;
+   row_range.setValues(set_of_rows);
+}
+
+
+ // floatToPrettyText:
+ // Takes a float like 22.123456789 and returns "22.12".
+ // Note: this function will return 2 digits past the decimal, but will
+ // do so without rounding.
+ function floatToPrettyText(f)
+ {
+   s1 = f + ""; // float to string
+   sp = s1.split("."); // split at decimal
+ 
+   s2 = sp[0] + ".";
+   if (sp.length > 1)
+     {
+       s2 = s2 + sp[1].substring(0,2);
+     }
+   else
+     {
+       s2 = s2 + "00";
+     }
+ 
+   return s2;
+ }
+ 
+ // renameSubmissionsSheet:
+ // Rename "Sheet1" to something more friendly to enhance useability. When
+ // looking for the submissions in the future, we'll refer to the spreadsheet
+ // with this name.
+ // TODO: Make sure this doesn't prevent future submissions
+ // Returns:
+ //    STATUS_OK if rename successful.
+ //    STATUS_NOT_FOUND if 'Sheet1' sheet not present.
+ //    STATUS_NO_EFFECT if 'Sheet1' had previously been renamed, and so another
+ //      rename wasn't done.
+ function renameSubmissionsSheet()
+ {
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var sheet = ss.getSheetByName(gbl_subm_sheet_name);
+   if (sheet)
+     {
+       // sheet has already been renamed.
+       return STATUS_NO_EFFECT;
+     }
+ 
+   var all_sheets = ss.getSheets();
+   if (all_sheets.length == 1)
+     {
+       // Only 1 sheet. Assume it has the student submissions, and
+       // rename it to something more friendly (and which we can refer
+       // to later).
+       sheet = all_sheets[0];
+       sheet.setName(gbl_subm_sheet_name);
+       return STATUS_OK;
+     }
+   else if (all_sheets.length > 1)
+     {
+       // More than one sheet. If can find "Sheet1", assume this one has
+       // the submissions and rename it.
+       sheet = ss.getSheetByName("Sheet1");
+       if (sheet != null)
+         {
+           // Rename "Sheet1" to something more friendly.
+           sheet.setName(gbl_subm_sheet_name);
+           return STATUS_OK;
+         }
+     }
+   
+   // Can't locate sheet with submissions. Tell the user.
+   return STATUS_NOT_FOUND;
+ }
+
+function createGATrackingUrl(encoded_page_name)
+{
+  var utmcc = createGACookie();
+  
+  if (utmcc == null)
+    {
+      return null;
+    }
+ 
+  var ga_url1 = "http://www.google-analytics.com/__utm.gif?utmwv=5.2.2&utmhn=www.flubaroo-analytics.com&utmcs=-&utmul=en-us&utmje=1&utmdt&utmr=0=";
+  var ga_url2 = "&utmac=UA-22064161-3&utmcc=" + utmcc + "&utmu=DI~";
+  var ga_url_full = ga_url1 + encoded_page_name + "&utmp=" + encoded_page_name + ga_url2;
+  
+  return ga_url_full;
+}
+
+function createGACookie()
+{
+  var a = "";
+  var b = "100000000";
+  var c = "200000000";
+  var d = "";
+
+  var dt = new Date();
+  var ms = dt.getTime();
+  var ms_str = ms.toString();
+ 
+  var flubaroo_uid = UserProperties.getProperty("flubaroo_uid");
+  if ((flubaroo_uid == null) || (flubaroo_uid == ""))
+    {
+      // shouldn't happen unless user explicitly removed flubaroo_uid from properties.
+      return null;
+    }
+  
+  a = flubaroo_uid.substring(0,9);
+  d = flubaroo_uid.substring(9);
+  
+  utmcc = "__utma%3D451096098." + a + "." + b + "." + c + "." + d 
+          + ".1%3B%2B__utmz%3D451096098." + d + ".1.1.utmcsr%3D(direct)%7Cutmccn%3D(direct)%7Cutmcmd%3D(none)%3B";
+ 
+  return utmcc;
+}
+
+function logGrading(ss_name)
+{
+  if (ss_name.indexOf('Geography 10 - Quiz #2') == -1)
+    {
+      // probably not the "try it now" sample. so anonymously record that another
+      // assignment was graded!
+      var ga_url = createGATrackingUrl("Assignment%20Graded");
+      if (ga_url)
+        {
+          var response = UrlFetchApp.fetch(ga_url);
+        }
+    }
+  else // sample assignment
+    {
+      var ga_url = createGATrackingUrl("Sample%20Graded");
+      if (ga_url)
+        {
+          var response = UrlFetchApp.fetch(ga_url);
+        }
+    }
+}
+
+function logEmail()
+{
+  var ga_url = createGATrackingUrl("Emailed%20Grades");
+  if (ga_url)
+    {
+      var response = UrlFetchApp.fetch(ga_url);
+    }
+}
+
+function logAboutFlubaroo()
+{
+  var ga_url = createGATrackingUrl("About%20Flubaroo");
+  if (ga_url)
+    {
+      var response = UrlFetchApp.fetch(ga_url);
+    }
+}
+
+function logFirstInstall()
+{
+  var ga_url = createGATrackingUrl("First%20Install");
+  if (ga_url)
+    {
+      var response = UrlFetchApp.fetch(ga_url);
+    }
+}
+
+function logRepeatInstall()
+{
+  var ga_url = createGATrackingUrl("Repeat%20Install");
+  if (ga_url)
+    {
+      var response = UrlFetchApp.fetch(ga_url);
+    }
+}
+
+function setFlubarooUid()
+{ 
+  var flubaroo_uid = UserProperties.getProperty("flubaroo_uid");
+  if (flubaroo_uid == null || flubaroo_uid == "")
+    {
+      // user has never installed Flubaroo before (in any spreadsheet)
+      var dt = new Date();
+      var ms = dt.getTime();
+      var ms_str = ms.toString();
+ 
+      UserProperties.setProperty("flubaroo_uid", ms_str);
+      logFirstInstall();
+    }
+}
+
+function showNewVersionNotice()
+{
+  // Let the user know if this is a new version.
+  var cver = UserProperties.getProperty("flubaroo_current_version");
+  
+  if ((cver == null) || (cver != gbl_version_str))
+    {
+      if (gbl_version_update_notice != "")
+        {
+          Browser.msgBox("New Flubaroo Version!", gbl_version_update_notice,
+                         Browser.Buttons.OK);
+        }
+    }
+}

@@ -1,0 +1,110 @@
+// File: definitions.gas
+// Description: 
+// This file contains all constants and global variable definitions.
+
+// Current version. Shown in "About Flubaroo" dialogue.
+gbl_version_str = "Version 2.1";
+
+// Version update notice. Set this to something other than "" when a new version is made
+// available (gbl_version_str is updated). This message will then be popped up during
+// first install of the updated script.
+gbl_version_update_notice = "";
+
+ // Global variables for naming things
+ gbl_menu_name = 'Flubaroo';
+ gbl_lbl_subm_time = 'Submission Time';
+ gbl_subm_sheet_name = 'Student Submissions';
+ gbl_grades_sheet_name = 'Grades';
+ 
+ // Global variables that relate to row and column numbers or lengths.
+ gbl_grades_start_row_num = 7;
+ gbl_num_additional_grades_cols = 4; // score, percent, 
+                                     // submission row, number of submissions.
+
+ // Constants for hidden rows, including order of hidden rows
+ gbl_num_hidden_rows = 3;       // number of hidden rows at the bottom of the Grades sheet.  
+ gbl_num_cols_goodies_row = 3;  // # num of data fields in hidden row containing
+                                // extra "goodies" (below grading options row).
+ gbl_num_space_before_hidden = 10;  // number of rows to add before hidden rows   
+ HIDDEN_ROW_GRADING_OPTIONS = 1;
+ HIDDEN_ROW_GOODIES = 2;
+ HIDDEN_ROW_ORIG_ORDER = 3;
+ 
+ // Indicies into the array returned by getHiddenGoodies:
+ HIDDEN_GOODIES_ANSWER_KEY_ROW = 0;
+ HIDDEN_GOODIES_NUMBER_SUBMISSIONS = 1;
+ HIDDEN_GOODIES_CHART_URL = 2;
+ 
+ FLUBAROO_WELCOME_IMG_URL =
+              'http://flubaroo.appspot.com/welcome_to_flubaroo_sm.png';
+ FLUBAROO_WORKING_IMG_URL =
+              'http://flubaroo.appspot.com/ajax-loader.gif';
+   
+ 
+ STEP1_INSTRUCTIONS = "Please select a grading option for each of the "
+                     + "questions in the assignment. Flubaroo has done its "
+                     + "best to guess the best option for you, but you "
+                     + "should check the option for each question yourself.";
+ 
+ STEP2_INSTRUCTIONS = "Please select which submission should be used as "
+                     + "the Answer Key. Typically this will be a submission "
+                     + "made by you. All other submissions will be "
+                     + "graded against the Answer Key, so take care to "
+                     + "ensure that you select the right one.";// File: definitions.gas
+ 
+ WAIT_INSTRUCTIONS1 = "Flubaroo is examining your assignment. Please wait...";
+ 
+ WAIT_INSTRUCTIONS2 = "Please wait while your assignment is graded. This may "
+                    + "take a minute or two to complete.";
+ 
+ RESULTS_MESSAGE1  = "Grading has completed! A new worksheet called 'Grades' "
+                    + "has been created. "
+                    + "This worksheet contains a grade for each submission, "
+                    + "and a summary of all grades at the top. "
+                    + " ** Note: The 'Grades' sheet is not meant to be modified "
+                    + " in any way, as this can interfere with emailing grades. "
+                    + "If you need to modify this sheet, copy it and modify the copy.";
+   
+ RESULTS_MESSAGE2 = "Tips: The very last row shows the percent of students who got each "
+                    + "question correct, with overall low-scoring questions "
+                    + "highlighted in orange. Also, individual students who scored below 70% "
+                    + "will appear in red font.";
+ 
+ EMAIL_GRADES_INSTRUCTIONS = "Flubaroo can email each student their grade, "
+                             + "as well as the correct answers. "
+                             + "Use the pull-down menu to select the question "
+                             + "that asked students for their email "
+                             + "address. If email addresses "
+                             + "were not collected, then you will not be able "
+                             + "to email grades.";
+
+ PRINT_REPORTS_INSTRUCTIONS = "Flubaroo can save the reports into a Google "
+                             + "Doc as well as show the correct answers. "
+                             + "This can take several minutes to complete.  You "
+                             + "will be able to find your new file in Google Docs.";
+ 
+ ABOUT_FLUBAROO_MSG1 = "Flubaroo is a free, time-saving tool that allows "
+                       + "teachers to quickly grade mutiple choice assignments "
+                       + "and analyze the results.";
+   
+ ABOUT_FLUBAROO_MSG2 = "To learn more, visit www.flubaroo.com. Also send "
+                       + "feedback or ideas to feedback@flubaroo.com. ";
+ 
+
+ CANNOT_FIND_SUBM_MESSAGE = 'Flubaroo could not determine which sheet contains the '
+                            + 'student submissions. Please locate this sheet, '
+                            + 'and rename it to "' + gbl_subm_sheet_name + '". '
+                            + 'Then try grading again.';
+ 
+ GRADING_OPT_STUD_ID = "Identifies Student";
+ GRADING_OPT_SKIP = "Skip Grading";
+ GRADING_OPT_1_PT = "1 Point";
+ GRADING_OPT_2_PT = "2 Points";
+ GRADING_OPT_3_PT = "3 Points";
+ GRADING_OPT_4_PT = "4 Points";
+ GRADING_OPT_5_PT = "5 Points";
+ 
+ // Status codes for function return values
+ STATUS_OK = 0
+ STATUS_NOT_FOUND = 1
+ STATUS_NO_EFFECT = 2
