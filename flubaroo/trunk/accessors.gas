@@ -24,8 +24,9 @@
  function getNumQuestionsFromSubmissions(subm_sheet)
  {
    var n_ques = subm_sheet.getLastColumn();
+
    var question_vals = singleRowToArray(subm_sheet, 1, n_ques);
- 
+   
    // make sure the user didn't do any rearranging of columns, leaving
    // blank columns at the end.
    for (var i = question_vals.length - 1; i >= 0; i--)
@@ -221,5 +222,4 @@ function getGradeRowSubmRowIndex(grading_options)
   
    return sheet;
  }
-
 
