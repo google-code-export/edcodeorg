@@ -3,6 +3,9 @@
 // This file contains helper functions for a variety of purposes, as
 // well as the functions that handle script installation and menu setup.
 
+// rowCache
+rc = null; 
+
  // onInstall: 
  // Gets called when script is first installed.
  // Sets up menu (really just calls onOpen() ).
@@ -43,7 +46,6 @@
      {
        menuEntries.push({name: "Regrade Assignment", functionName: "gradeStep1"});
        menuEntries.push({name: "Email Grades", functionName: "emailGrades"});
-       menuEntries.push({name: "Save Individual Reports", functionName: "printReports"});
        menuEntries.push({name: "View Report", functionName: "viewReport"});
      }
    else
@@ -154,31 +156,36 @@ function strTrim(str) {
    
 function singleRowToArray(sheet, row_num, num_cols)
  {
-   var row_array = new Array();
-   var val;
- 
+   if (rc == null)
+     {
+       rc = new rowCache(SpreadsheetApp.getActiveSpreadsheet());
+     }
+   
    if (num_cols == -1)
      {
-       // maybe this should just be the default, and I should not even 
-       // bother with 'num_cols' as an argument? just a thought to simplify 
-       // the code. - DA 8/25/11
        num_cols = sheet.getLastColumn();
      }
+ 
+   return rc.getRow(sheet, row_num, num_cols);
+  
+   //var row_array = new Array();
+   //var val;
+  
    
    // grab a single row from the sheet as a 'Range' type.
-   var row_from_sheet = sheet.getRange(row_num, 1, 1, num_cols);
+   //var row_from_sheet = sheet.getRange(row_num, 1, 1, num_cols);
  
-   var values = row_from_sheet.getValues();
-   var nc = row_from_sheet.getNumColumns();
+   //var values = row_from_sheet.getValues();
+   //var nc = row_from_sheet.getNumColumns();
    
    // extract the value in each cell, and stick into the row_array.
-   for (var c=0; c < nc; c++)
-     {
-       val = values[0][c];
-       row_array.push(val);
-     }
+   //for (var c=0; c < nc; c++)
+   //  {
+   //    val = values[0][c];
+   //    row_array.push(val);
+   //  }
  
-   return row_array;
+   //return row_array;
  }
 
 // writeArrayToRow:
@@ -186,12 +193,22 @@ function singleRowToArray(sheet, row_num, num_cols)
 // Row ids start from 1. Note that this will override any pre-existing content
 // in the affected cells of that row.
 // The row need not exist ahead of time.
-function writeArrayToRow(sheet, row_num, row_values)
+function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
 {
-   var row_range = sheet.getRange(row_num, 1, 1, row_values.length);
+   var row_range = sheet.getRange(row_num, 1, start_col, row_values.length);
    var set_of_rows = new Array(1);
    set_of_rows[0] = row_values;
-   row_range.setValues(set_of_rows);
+  
+   if (bold)
+     {
+       row_range.setFontWeight("bold");
+     }
+   if (color)
+     {
+       row_range.setBackgroundColor(color);
+     }
+  
+    row_range.setValues(set_of_rows);
 }
 
 
@@ -394,3 +411,99 @@ function showNewVersionNotice()
         }
     }
 }
+
+function customLogClear()
+{
+  if (!gbl_do_logging)
+    {
+      return;
+    }
+  
+  Logger.clear();
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("log");
+  
+  if (sheet)
+    {
+      sheet.deleteRows(2, sheet.getMaxRows() - 1);
+    }
+  
+  sheet.insertRowsAfter(1, 5);
+}
+
+function customLog(msg)
+{
+  if (!gbl_do_logging)
+    {
+      return;
+    }
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("log");
+  
+  // currently broken
+  Logger.log(msg);
+
+  if (sheet)
+    {
+      var row = sheet.getLastRow();
+      row = row + 1;
+      var single_cell = sheet.getRange(row, 1, 1, 1);
+      single_cell.setValue(msg);
+    }
+}
+
+// rowCache:
+// This object speeds reading of rows in a spreadsheet by reading not only the requested
+// row, but also the next 9 (for 10 total). Batching row reads is much faster than reading
+// individual ones, especially when reading through all rows in a sheet. 
+// It keeps a seperate cache for each sheet. The cache per sheet is of size 1, such that
+// if a cache miss occurs, the current 10 rows in the cache are kicked out.
+function rowCache(ss)
+{
+  this.ss = ss;
+  this.cache = new Array(); // indexed by sheet_index  
+}
+
+rowCache.prototype.getRow = function(sheet, row_num, num_cols)
+{
+  var sheet_index = sheet.getIndex();
+  
+  // check if this sheet has an entry or not.
+  if (!(sheet_index in this.cache))
+    {
+      this.cache[sheet_index] = new Array();
+    }
+     
+  var row_cache = this.cache[sheet_index];
+   
+  // check for this row in the cache
+  if (!(row_num in row_cache)
+      || (row_cache[row_num].length != num_cols))
+    {
+      // when a row cache miss occurs, clear all rows in the cache
+      this.cache[sheet_index] = null;
+
+      // create new assoc array. index will be row num. 10 entries.
+      row_cache = new Array();
+            
+      // read in the needed row, plus the next 9 (10 total)
+      var range = sheet.getRange(row_num, 1, 10, num_cols);
+      
+      var range_vals = range.getValues();
+      
+      for (var r=0; r < range.getNumRows(); r++)
+        {
+          // record the data for this row, indexed by row_number
+          row_cache[row_num+r] = range_vals[r];
+        }
+      
+      // record it for the sheet_id
+      this.cache[sheet_index] = row_cache;
+
+    }
+ 
+  // lookup and return the row, which is now in the cache
+  return row_cache[row_num];
+};
