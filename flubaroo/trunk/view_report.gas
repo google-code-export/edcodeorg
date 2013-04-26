@@ -30,17 +30,16 @@
  {
    var app = UiApp.createApplication().setTitle('Flubaroo - Grading Report')
                                       .setWidth("680").setHeight("490");
+     
+   var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_META);
+   var points_possible = gws.getPointsPossible();  
+   var avg_subm_score = gws.getAverageScore();
+   var num_subm = gws.getNumGradedSubmissions();
    
-   var num_questions = getNumQuestionsFromGrades(grades_sheet);
-   var hidden_goodies = getHiddenGoodies(grades_sheet);  
-   
-   var chart_url = hidden_goodies[HIDDEN_GOODIES_CHART_URL];
-   
-   var points_possible = getCellValue(grades_sheet, 2, 2);
-   var avg_subm_score = getCellValue(grades_sheet, 3, 2);
-   var num_subm = getCellValue(grades_sheet, 4, 2);
    var title = ss.getName();
    
+   var chart_url = ScriptProperties.getProperty(SCRIPT_PROP_HISTOGRAM_URL);
+  
    // Declare the handler that will be called when the 'Continue' or 'Cancel'
    // buttons are clicked.
    var handler = app.createServerClickHandler('emailReportHandler');
@@ -92,13 +91,14 @@
    var ss = SpreadsheetApp.getActiveSpreadsheet();
    var grades_sheet = getSheetWithGrades(ss);
  
-   var num_questions = getNumQuestionsFromGrades(grades_sheet);
-   var hidden_goodies = getHiddenGoodies(grades_sheet);  
+   var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_META);
+   var points_possible = gws.getPointsPossible();  
+   var avg_subm_score = gws.getAverageScore();
+   var num_subm = gws.getNumGradedSubmissions();
    
-   var chart_url = hidden_goodies[HIDDEN_GOODIES_CHART_URL];
-   var points_possible = getCellValue(grades_sheet, 2, 2);
-   var avg_subm_score = getCellValue(grades_sheet, 3, 2);
-   var num_subm = getCellValue(grades_sheet, 4, 2);
+   var title = ss.getName();
+   
+   var chart_url = ScriptProperties.getProperty(SCRIPT_PROP_HISTOGRAM_URL);
    var title = ss.getName();
    
    var email_address = e.parameter.email_addr;
