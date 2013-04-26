@@ -3,7 +3,7 @@
 // This file contains all relevant functions for emailing students their grades.
 
 // emailGradesSetup: Displays the UI for the user to select emailing options.
- function emailGrades()
+function emailGrades()
  {
    var ss = SpreadsheetApp.getActiveSpreadsheet();
   
@@ -25,22 +25,15 @@
  
  function createEmailGradesUI(sheet)
  {
+   customLogClear();
+   
    var ss = SpreadsheetApp.getActiveSpreadsheet();
-   var submissions_sheet = getSheetWithSubmissions(ss);
-   var grades_sheet = getSheetWithGrades(ss);  
- 
+   
    var app = UiApp.createApplication().setTitle('Flubaroo - Email Grades')
                                       .setWidth("400").setHeight("520");
  
-   var num_questions = getNumQuestionsFromGrades(grades_sheet);
-   var orig_order = getOriginalOrderFromGrades(grades_sheet);
-   
-   // grab the hidden row, which contains the grading options and answer key number.  
-   var grading_options = getGradingOptionsFromGrades(grades_sheet);
-         
-   // capture the row of questions from the submissions sheet
-   var question_vals = getQuestionValsReordered(submissions_sheet, orig_order)
-         
+   var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_META);
+
    // Declare the handler that will be called when the 'Continue' or 'Cancel'
    // buttons are clicked.
    var handler = app.createServerClickHandler('emailGradesHandler');
@@ -69,21 +62,30 @@
  
    // create a pull-down box containing all the questions which identify a
    // student. 
-   var lbox_name = "email_ques_col";
+   var lbox_name = "email_ques_index";
    var lbox = app.createListBox(false).setId(lbox_name).setName(lbox_name);
    var position = -1;
-   for (var i=0; i < grading_options.length; i++)
+   
+   var graded_subm = gws.getFirstGradedSubmission();
+   var qi = 0;
+   var position = -1;
+
+   for (var q = graded_subm.getFirstQuestion(); q != null; q = graded_subm.getNextQuestion(q))
      {
-       if (grading_options[i] == GRADING_OPT_STUD_ID)
+       var gopt = q.getGradingOption();
+       var ques_val = q.getFullQuestionText(); // to do: abbreviate
+  
+       if (gopt == GRADING_OPT_STUD_ID)
          {
-           lbox.addItem(question_vals[i], String(i));
+           lbox.addItem(ques_val, String(qi));
            position++;
 
-           if (quesContainsEmail(question_vals[i]))
+           if (quesContainsEmail(ques_val))
              {       
                lbox.setSelectedIndex(position); 
              }
          }
+       qi++;
      }
         
    var hpanel2 = app.createHorizontalPanel()
@@ -102,7 +104,7 @@
        .add(cbox);
    main_panel.add(hpanel3);
  
-   // depenfds on above being checked
+   // depends on above being checked
    var cbox2_name = "show_answers";
    var cbox2 = app.createCheckBox().setId(cbox2_name).setName(cbox2_name);
    var hpanel4 = app.createHorizontalPanel()
@@ -152,7 +154,6 @@
    var app = UiApp.getActiveApplication();
    
    var sa_cbox = app.getElementById('show_answers');
-   
    var new_value = e.parameter.show_questions;
    
    if (new_value == 'true')
@@ -182,50 +183,15 @@
    
    var ss = SpreadsheetApp.getActiveSpreadsheet();
    
-   var grades_sheet = getSheetWithGrades(ss);  
-   
-   var submissions_sheet = getSheetWithSubmissions(ss);
-   if (submissions_sheet == null)
-     {
-       Browser.msgBox("Flubaroo Notification",
-                      "Could not find the sheet: '" + gbl_subm_sheet_name +
-                      "'. Grades cannot be emailed.",
-                      Browser.Buttons.OK);
-       return;
-     }
-      
-   var email_ques_col = e.parameter.email_ques_col;
+   var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_FULL);
+ 
+   var email_ques_index = e.parameter.email_ques_index;
    var show_answers = e.parameter.show_answers;
    var instructor_message = e.parameter.instructor_message;
    var show_questions = e.parameter.show_questions;
    
-   var num_questions = getNumQuestionsFromGrades(grades_sheet);
-   
-   var grading_options = getGradingOptionsFromGrades(grades_sheet);
-   var hidden_goodies = getHiddenGoodies(grades_sheet);
-   
-   var presentation_order = getPresentationOrder(grades_sheet);
-   
-   email_ques_col++; // array index to column number
-   
    var user_email_addr = e.parameter.email_addr;
    
-   // get the bonus data that's stored along with the grading options in the hidden row\
-   var answer_key_row_num = hidden_goodies[HIDDEN_GOODIES_ANSWER_KEY_ROW];
-   var num_subm = hidden_goodies[HIDDEN_GOODIES_NUMBER_SUBMISSIONS];
-      
-   
-   var orig_order = getOriginalOrderFromGrades(grades_sheet);
-        
-   // capture the row of questions from the submissions sheet
-   var question_vals = getQuestionValsReordered(submissions_sheet, orig_order)
-    
-   var answer_key_vals = getSubmissionsRowDataReordered(submissions_sheet, 
-                                                        answer_key_row_num, orig_order);
-   
-   var points_possible = getCellValue(grades_sheet, 2, 2);
-   var avg_subm_score = getCellValue(grades_sheet, 3, 2);
-   var num_subm = getCellValue(grades_sheet, 4, 2);
    var assignment_name = ss.getName();
  
    // remove any HTML formatting from the instructor's message
@@ -235,50 +201,43 @@
    var msg_title = 'Here is your grade for "' + assignment_name + '"';
    var msg_body = "";
                    
-   var start_row = gbl_grades_start_row_num+1;
-   var end_row = start_row + num_subm - 1;
-       
    var num_emails_sent = 0;
- 
-   // find out in which column the student's total score is stored.
-   var grade_row_pts_index = getGradeRowPointsIndex(grading_options);
+   var num_emails_unsent = 0;
    
-   // find out in which column we record the row number of the student's graded
-   // submission (in "Student Submissions").
-   var grade_row_subm_row_index = getGradeRowSubmRowIndex(grading_options);  
-  
-   for (subm_row=start_row; subm_row <= end_row; subm_row++)
+   customLog("sending emails");
+   for (var graded_subm = gws.getFirstGradedSubmission(); graded_subm != null; 
+            graded_subm = gws.getNextGradedSubmission())
      {
-       var email_address = getCellValue(grades_sheet, subm_row, email_ques_col);
-      
-       if (isValidEmailAddress(email_address))
-         {
-           var grade_row_data = getGradesRowData(grades_sheet, subm_row);
-                
-           // get the responses that this student gave int their submissions
-           var student_subm_row = grade_row_data[grade_row_subm_row_index];
-           var student_subm_vals = getSubmissionsRowDataReordered(submissions_sheet, 
-                                                              student_subm_row, orig_order);          
-           
-           msg_body = constructGradesEmailBody(assignment_name,
-                                               num_questions,
-                                               points_possible,
-                                               show_questions,
-                                               question_vals,  // questions (to echo)
-                                               show_answers,
-                                               answer_key_vals,
-                                               student_subm_vals,
-                                               grade_row_data, // scores
-                                               grade_row_pts_index,
-                                               grading_options,
-                                               presentation_order,
-                                               instructor_message); // grading options
- 
-           MailApp.sendEmail(email_address, msg_title, "",
-                             {htmlBody: msg_body, noReply: true, name: "Assignment Grader"});
-           num_emails_sent += 1;           
-         }
+       // pull the email address for this submission
+       var q = graded_subm.getQuestionByIndex(email_ques_index);
+       var email_address = q.getGradedVal();
    
+       if (!isValidEmailAddress(email_address) || (graded_subm.getAlreadyEmailed() != ""))
+           {
+             num_emails_unsent += 1;
+             continue;
+           }
+       
+        msg_body = constructGradesEmailBody(assignment_name,
+                                            gws.getPointsPossible(),
+                                            show_questions,
+                                            show_answers,
+                                            instructor_message,
+                                            graded_subm); // grading options
+           
+       try
+         {
+           MailApp.sendEmail(email_address, msg_title, "",
+                             {htmlBody: msg_body, noReply: true, name: "Flubaroo Grader"});
+           num_emails_sent += 1;
+         }
+       catch (exception)
+          {
+           // just ignore malformed emails, or email errors.
+           num_emails_unsent += 1;
+          }
+       
+       graded_subm.recordEmailSentInGradesSheet();
      }
    
    app.close();
@@ -290,9 +249,9 @@
        msg_body = "<html><body><p>Grades for your assigment <b>";
        msg_body += '<a href="' + ss.getUrl() + '">' + assignment_name + "</a></b>";
        msg_body += " were just emailed to <b>" + num_emails_sent + "</b> students.</p>";
-       msg_body += "<p>The were a total of <b>" + num_subm + "</b> graded submissions,";
-       msg_body += " with an average score of <b>" + avg_subm_score + "</b> out of a possible ";
-       msg_body += "<b>" + points_possible + "</b> points.</p>";
+       msg_body += "<p>The were a total of <b>" + gws.getNumGradedSubmissions() + "</b> graded submissions,";
+       msg_body += " with an average score of <b>" + gws.getAverageScore() + "</b> out of a possible ";
+       msg_body += "<b>" + gws.getPointsPossible() + "</b> points.</p>";
        msg_body += "<p>An answer key was ";
        if (show_answers != 'true')
          {
@@ -308,18 +267,23 @@
        msg_body += "</body></html>";
         
        MailApp.sendEmail(user_email_addr, msg_title, "",
-                         {htmlBody: msg_body, noReply: true, name: "Assignment Grader"});
+                         {htmlBody: msg_body, noReply: true, name: "Flubaroo Grader"});
        
        logEmail();
        
-       Browser.msgBox("Flubaroo Notification",
-                      "Grades were emailed to " + num_emails_sent + " students.",
-                      Browser.Buttons.OK);
+       var email_notification = "Grades were successfully emailed to " + num_emails_sent + " students."; 
+       if (num_emails_unsent > 0) 
+         { 
+           email_notification += " Grades were not sent to another " + num_emails_unsent + " students, due to invalid or blank email addresses, "
+                              + "or because they have already been emailed their grades."; 
+         } 
+       Browser.msgBox("Flubaroo Notification", email_notification, 
+                      Browser.Buttons.OK);   
      }
    else
      {
        Browser.msgBox("Flubaroo Notification",
-                      "No grades were emailed because no valid email addresses were found.",
+                      "No grades were emailed because no valid email addresses were found, or because all students have already been emailed their grades.",
                       Browser.Buttons.OK);
      }
    
@@ -347,28 +311,22 @@
    return false;
  }
    
- function constructGradesEmailBody(assignment_name,
-                                   num_questions, points_possible,
-                                   show_questions, question_vals, 
-                                   show_answers, answer_key_vals,
-                                   student_subm_vals,
-                                   grade_row_data,
-                                   grade_row_pts_index,
-                                   grading_options,
-                                   presentation_order,
-                                   instructor_message)
-{   
-  var grade_pts = grade_row_data[grade_row_pts_index];
 
+function constructGradesEmailBody(assignment_name,
+                                  points_possible,
+                                  show_questions,
+                                  show_answers,
+                                  instructor_message,
+                                  graded_subm)
+{   
   var msg_body = '<html><body bgcolor="white">';
    
   msg_body += '<p>This email contains your grade '
                + 'for <b>'
                + assignment_name + '</b>. Do not reply to this email.</p>';
    
- 
   msg_body += '<div style="padding-left:10px;display:inline-block;border:1px solid black;">'; 
-  msg_body += "<h2>Your Grade: <b>" + grade_pts + " / " + points_possible + " points&nbsp;&nbsp;</h2></b></div>";
+  msg_body += "<h2>Your Grade: <b>" + graded_subm.getScorePoints() + " / " + points_possible + " points&nbsp;&nbsp;</h2></b></div>";
 
   if (instructor_message != "")
      {
@@ -382,18 +340,19 @@
   msg_body += "<br><p>Summary of your submission: "
   
   msg_body += "<table border=0 cellspacing=12 width=80%>";
-  for (var i=0; i < num_questions; i++)
+  for (var q = graded_subm.getFirstQuestion(); q != null; q = graded_subm.getNextQuestion(q))
     {
-      if (grading_options[i] == GRADING_OPT_STUD_ID)
+      if (q.getGradingOption() == GRADING_OPT_STUD_ID)
         {
           msg_body += "<tr><td>"
-                      + question_vals[i] + "</td><td>"
-                      + "<b>" + grade_row_data[i] + "</b></td></tr>";
+                      + q.getFullQuestionText() + "</td><td>"
+                      + "<b>" + q.getFullSubmissionText() + "</b></td></tr>";
         }
     }
+  
   msg_body += "<tr><td>"
                + gbl_lbl_subm_time + "</td><td>"
-               + "<b>" + grade_row_data[0] + "</b></td></tr>";
+               + "<b>" + graded_subm.getTimestamp() + "</b></td></tr>";
   msg_body += "</table>";  
   msg_body += "</p>"; 
   
@@ -430,21 +389,22 @@
       var bgcolor;
       var c;
    
-      for (var i=1; i < grading_options.length; i++)
+      for (var q = graded_subm.getFirstQuestion(); q != null; q = graded_subm.getNextQuestion(q))
         {
-          if (grading_options[i] == "")
+          if (q.isTimestamp())
             {
-              // this is an added column that has no grading option,
-              // such as "Total Points" or "Times Submitted".
               continue;
             }
-          if (grading_options[i] != GRADING_OPT_STUD_ID)
+          
+          var gopt = q.getGradingOption();
+      
+          if (gopt != GRADING_OPT_STUD_ID)
             {
-              if (grading_options[i] == GRADING_OPT_SKIP)
+              if (gopt == GRADING_OPT_SKIP)
                 {
                   bgcolor = bgcolor_gray;
                 }
-              else if (grade_row_data[i] == 0)
+              else if (q.getGradedVal() == 0)
                 {
                   bgcolor = bgcolor_red;
                 } 
@@ -454,25 +414,24 @@
                 }
            
               msg_body += "<tr>";
-              msg_body += '<td bgcolor="' + bgcolor + '">' + question_vals[i] + "</td>";
+              msg_body += '<td bgcolor="' + bgcolor + '">' + q.getFullQuestionText() + "</td>";
          
-              msg_body += '<td bgcolor="' + bgcolor + '">' + student_subm_vals[i] + "</td>";
+              msg_body += '<td bgcolor="' + bgcolor + '">' + q.getFullSubmissionText() + "</td>";
         
               if (show_answers == 'true')
                 {
-                  msg_body += '<td bgcolor="' + bgcolor + '">' + answer_key_vals[i] + "</td>";
+                  msg_body += '<td bgcolor="' + bgcolor + '">' + q.getAnswerKeyText() + "</td>";
                 }
        
-              if (grading_options[i] == GRADING_OPT_SKIP)
+              if (gopt == GRADING_OPT_SKIP)
                 {
                   msg_body += '<td bgcolor="' + bgcolor + '"></td>';
-                  msg_body += '<td bgcolor="' + bgcolor + '">' + grade_row_data[i] + "</td>";
+                  msg_body += '<td bgcolor="' + bgcolor + '">' + gbl_grading_opt_skip + "</td>";
                 }
               else
                 {
-                  msg_body += '<td bgcolor="' + bgcolor + '">' + grade_row_data[i] + "</td>";
-                  msg_body += '<td bgcolor="' + bgcolor +'">' 
-                               + getPointsWorth(grading_options[i]) + "</td>";
+                  msg_body += '<td bgcolor="' + bgcolor + '">' + q.getGradedVal() + "</td>";
+                  msg_body += '<td bgcolor="' + bgcolor +'">' + getPointsWorth(gopt) + "</td>";
                 }
               msg_body += "</tr>";
             }
@@ -481,11 +440,11 @@
       msg_body += "</table><br>";
     } 
    
-   msg_body += '<p><b>This email was generated by <a href="http://www.flubaroo.com">Flubaroo</a>, a free tool for grading and assesments.</b></p>';
+   msg_body += '<p><b>This email was generated by <a href="http://www.flubaroo.com">Flubaroo</a>, a free tool for grading and assessments.</b></p>';
    
    msg_body += "</body></html>";
    return msg_body;
- }
+}
 
 function quesContainsEmail(ques_txt)
 {
