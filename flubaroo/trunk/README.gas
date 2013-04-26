@@ -16,3 +16,5 @@
 //                         function by changing grading options row.
 //                         Added extra hidden rows to make 'Grades' self-contained.
 //                         Broke 'flubaroo.gas' into multiple files.
+//   Version 2.1, 11/29/12: Fixes for issues 8 and 9.
+//   Version 3.0 ...
