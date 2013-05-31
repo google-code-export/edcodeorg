@@ -4,7 +4,7 @@
 
 // global variable to turn on/off logging. should always be 'false' in
 // published script.
-gbl_do_logging = true;
+gbl_do_logging = false;
 
 // global variable to enable reading of UI options (grading opts,
 // answer key) from script props. If set, and those script props

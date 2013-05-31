@@ -81,27 +81,21 @@ GradesWorksheet.prototype.initGWSVars = function(spreadsheet, init_type)
   
   else  // INIT_TYPE_GRADED_*
     {
-      customLog("dave1");
       // read in the hidden row containing the questions asked 
       this.question_vals = this.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_QUESTIONS_FULL, "");
-      customLog("dave2");
      
       // read in the hidden row containing the grading_options
       this.grading_options = this.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_GRADING_OPT, "");
-      customLog("dave3");
      
       // read through the grading options to initialize variables like:
       //      points_possible, num_student_identifiers, and num_gradeable_questions
       this.processGradingOptions();
-           customLog("dave4");
  
       // pull in some info from the summary table at the top.
       var summary_range = this.grades_sheet.getRange(2, 2, gbl_num_summary_rows, 1);
       var summary_col = summary_range.getValues();
       this.avg_subm_score = summary_col[1];
-      this.num_low = summary_col[3];
-           customLog("dave5");
- 
+      this.num_low = summary_col[3]; 
     }
 }
 
@@ -496,6 +490,10 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info)
    var question_text_row = first_graded_subm.createRowForGradesSheet(GRADES_OUTPUT_ROW_TYPE_QUESTIONS_FULL);       
    writeArrayToRow(this.grades_sheet, hidden_row_num_start + added_hidden_row_index++, 1, question_text_row, false, "");
    
+   // set active cell to be upper-left cell Grades sheet.
+   var ar = this.grades_sheet.getRange(1, 1, 1, 1);
+   this.grades_sheet.setActiveRange(ar);
+   
    for (var graded_subm = this.getFirstGradedSubmission(); graded_subm != null; 
             graded_subm = this.getNextGradedSubmission())
     { 
@@ -553,11 +551,7 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info)
    setCellValue(this.grades_sheet, 3, 2, this.avg_subm_score);
    setCellValue(this.grades_sheet, 4, 2, this.getNumGradedSubmissions());
    setCellValue(this.grades_sheet, 5, 2, this.num_low);
-   
-   // set active cell to be upper-left cell Grades sheet.
-   var ar = this.grades_sheet.getRange(1, 1, 1, 1);
-   this.grades_sheet.setActiveRange(ar);
-   
+      
    // Keep track (anonymously) of number of assignments graded
    // using Flubaroo. Try to not count the "try it now" sample
    // in this total, though.
@@ -600,12 +594,12 @@ GradesWorksheet.prototype.calculatePercentages = function()
              {
                if (isWorthPoints(gopt)) 
                  {
-                   this.perc_correct.push(0);
+                   this.perc_correct.push(0.00);
                  }
                else
                  {
                    // either timestamp, or question for which grading was skipped. so no percentage assigned.
-                   this.perc_correct.push("");
+                   this.perc_correct.push(-1);
                  }
              }
            
@@ -624,7 +618,7 @@ GradesWorksheet.prototype.calculatePercentages = function()
     for (var q_index=0; q_index < this.perc_correct.length; q_index++)
      {
        // for each question worth points, convert the number of students who got it right to a percent of students.
-       if (this.perc_correct[q_index] != "")
+       if (this.perc_correct[q_index] != -1)
          {
            this.perc_correct[q_index] = 100 * (this.perc_correct[q_index]) / this.getNumGradedSubmissions();
            this.perc_correct[q_index] = floatToPrettyText(this.perc_correct[q_index]);
@@ -635,6 +629,11 @@ GradesWorksheet.prototype.calculatePercentages = function()
              {
                num_low++;
              }
+         }
+       else
+         {
+           // no applicable percentage. just put blank.
+           this.perc_correct[q_index] = "";
          }
      }
   
@@ -1430,7 +1429,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
        }
  
    // Add in the option (not settable) for Q1: the Google timestamp.
-   ques1_opt = app.createHidden("Q1", "Skip Grading").setId("Q1").setName("Q1");
+   //ques1_opt = app.createHidden("Q1", "Skip Grading").setId("Q1").setName("Q1");
      
    // create the main panel to hold all content in the UI for this step.
    var main_panel = app.createVerticalPanel()
@@ -1443,7 +1442,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    app.add(form);
  
    // hidden values must be inside of the form to be passed on.
-   hidden_vars.add(ques1_opt);
+   //hidden_vars.add(ques1_opt);
      
    // add a top level hpanel for instructions and picture
    var hpanel = app.createHorizontalPanel()
@@ -1540,59 +1539,16 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
  
  function createStep2UI(e_step1, sheet)
  {
-   var app = UiApp.createApplication().setTitle('Flubaroo - Grading Step 2')
-                                      .setWidth("800").setHeight("460");
    var num_rows = sheet.getLastRow();
    var num_subm = num_rows - 1;
    var num_questions = getNumQuestionsFromSubmissions(sheet);
-   
-   var question_vals = singleRowToArray(sheet, 1, num_questions);
- 
-   // Declare the handler that will be called when the 'Cancel' button is
-   // clicked.
-   var handler = app.createServerClickHandler('step2EventHandler');
-   
-   // Declare a click handler that will be called when a radio button is selected
-   // (clicked). This handler will enable the "Continue" button, to ensure that
-   // the user selects something.
-   var radio_click_handler = app.createServerClickHandler('step2RadioClickHandler');
-   
-   var button_click_handler = app.createServerClickHandler('continueButtonClickHandler');
- 
-   // Before constructing the UI, we need to gather some important data from
-   // the last step, as well as store some of the data into the Step 2 UI as
-   // hidden variables so we can pass it on.
-   // Things to gather in this step:
-   //    Which questions identify a student (by grading option).
-   // Things to pass on in this step:
-   //    The grading option chosen for each question (from Step1).
-   // Loop through all grading options, and make a list of all questions (col
-   // numbers) that id a student.
  
    var ques_col; // spreadsheet column number, which starts from 1.
    var question = '';
    var student_id_cols = new Array();
- 
-   // Add the hidden option for question 1 (the timestamp).
-   e_step1.parameter["Q1"] = GRADING_OPT_SKIP;
-   var grading_options = gatherGradingOptions(e_step1, num_questions);
-   ScriptProperties.setProperty(SCRIPT_PROP_UI_GRADING_OPT, grading_options.toString());
-   
-   // create the main panel to hold all content in the UI for this step,
-   var main_panel = app.createVerticalPanel()
-                       .setStyleAttribute('border-spacing', '10px');
-        
-   var hidden_vars = app.createVerticalPanel().setVisible(false);
-     
-   var form = app.createFormPanel().setId('form').setEncoding('multipart/form-data');
-   form.add(main_panel);   
- 
-   app.add(form);
- 
-   // hidden values must be inside of the form to be passed on.
-   //hidden_vars.add(ques1_opt);
-     
-   // Go through each question.
+   var question_vals = singleRowToArray(sheet, 1, num_questions);
+
+   // Go through each question. Identify those that are student identifiers.
    for (ques_col=2; ques_col <= num_questions; ques_col = ques_col + 1)
      { 
        q_id = "Q" + String(ques_col); // e.g. "Q3"
@@ -1604,6 +1560,41 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
            student_id_cols.push(ques_col);
          }
      }
+  
+   // Try to accomomdate large numbers of student identifiers, which if present
+   // can screw up the UI and cause the "Continue" button to be pushed out of view.
+   // Add in implicit timestamp too.
+   var ui_width = "800";
+   if ((student_id_cols.length + 1) > 4)
+     {
+       ui_width = "950";
+     }
+   
+   var app = UiApp.createApplication().setTitle('Flubaroo - Grading Step 2')
+                                      .setWidth(ui_width).setHeight("460");
+   
+   // Declare a click handler that will be called when a radio button is selected
+   // (clicked). This handler will enable the "Continue" button, to ensure that
+   // the user selects something.
+   var radio_click_handler = app.createServerClickHandler('step2RadioClickHandler');
+   
+   var button_click_handler = app.createServerClickHandler('continueButtonClickHandler');
+ 
+   // Add the hidden option for question 1 (the timestamp).
+   e_step1.parameter["Q1"] = GRADING_OPT_SKIP;
+   var grading_options = gatherGradingOptions(e_step1, num_questions);
+   ScriptProperties.setProperty(SCRIPT_PROP_UI_GRADING_OPT, grading_options.toString());
+   
+   // create the main panel to hold all content in the UI for this step,
+   var main_panel = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px');
+        
+   var hidden_vars = app.createVerticalPanel().setVisible(false);   
+   
+   var form = app.createFormPanel().setId('form').setEncoding('multipart/form-data');
+   form.add(main_panel);   
+   app.add(form);
+      
  
    // Setup the grid with the list of submissions to pick the Answer Key from.
    // Each submission will have a radio button next to it, such that one
@@ -1615,11 +1606,23 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    // the questions which ID a student (e.g. "First Name", "Student ID", ....)
    grid.setWidget(0, 0, app.createLabel('Select'));
    grid.setWidget(0, 1, app.createLabel(gbl_lbl_subm_time));
+   
+   // Users have had issues with too many Student Identifiers (or rather long ones)
+   // screwing up the UI, causing the Continue button to get pushed out of view.
+   // To avoid, truncate all fields in this UI to a limited # of characters.
+   var trunc_len = 18;
+   
    for (var index=0; index < student_id_cols.length; index++)
      {
        question = question_vals[student_id_cols[index]-1];
+       var ques_trunc = question;
+       if (ques_trunc.length > trunc_len)
+         {
+           ques_trunc = ques_trunc.substring(0,trunc_len) + "...";
+         }
+       
        grid.setWidget(0, index+2,
-                      app.createLabel(createQuestionSummary(question)));
+                      app.createLabel(createQuestionSummary(ques_trunc)));
      }
  
    // Next go through each submission, and write out just the values for
@@ -1675,10 +1678,10 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
        for (ques_index=1; ques_index <= student_id_cols.length; ques_index++)
          {
            subm_text = String(answer_key_cols[ques_index].getCell(subm_row, 1).getValue());
-           if (subm_text.length > 40)
+           if (subm_text.length > trunc_len)
              {
                // truncate the response and add "..." to the end.
-               subm_text = subm_text.substring(0,40) + " ...";
+               subm_text = subm_text.substring(0,trunc_len) + "...";
              }
  
            grid.setWidget(subm_row, ques_index+1,
@@ -1708,9 +1711,11 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    spanel.add(grid);
    subm_panel.setWidget(spanel);
  
+ 
    // set the proper handler for doPost
    var h = app.createHidden("handler", "step2").setId("handler").setName("handler");
    hidden_vars.add(h);
+ 
  
    // add the Continue and Cancel buttons at the bottom.
    var btnGrid = app.createGrid(1, 3).setStyleAttribute('float', 'right');
@@ -1724,7 +1729,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
  
    main_panel.add(hidden_vars);
    
-   customLog("Step2 UI created");
+   //customLog("Step2 UI created");
        
    return app;
  }
@@ -1752,8 +1757,6 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    var ss = SpreadsheetApp.getActiveSpreadsheet();
    var sheet = getSheetWithSubmissions(ss);
    
-   customLog("step2EventHandler: begin");
-   
    if (e_step2 == null)
      {
        // skipping Step 1 and Step 2 of UI for debugging and development
@@ -1767,8 +1770,6 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    else
      {  
        source = e_step2.parameter.source;
-       customLog("step2EventHandler: " + source);
-       
        if (e_step2.parameter.answer_key_select === undefined)
          {
            // somehow no answer key was selected. just quit.
@@ -1777,18 +1778,17 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
          }
        
        answer_key_row_num = e_step2.parameter.answer_key_select;
-       ScriptProperties.setProperty(SCRIPT_PROP_ANSWER_KEY_ROW_NUM, answer_key_row_num);
        
+       ScriptProperties.setProperty(SCRIPT_PROP_ANSWER_KEY_ROW_NUM, answer_key_row_num);
+
        var num_questions = getNumQuestionsFromSubmissions(sheet);
-       //grading_options = gatherGradingOptions(e_step2, num_questions);
-       //ScriptProperties.setProperty(SCRIPT_PROP_UI_GRADING_OPT, grading_options.toString());
      }
    
    var app = UiApp.getActiveApplication();
    
    // If continuing, setup and display next UI window.
    if (!need_source || (need_source && (source == undefined)))
-     {               
+     {
        // Close current window.
        app.close();
  
@@ -1961,23 +1961,17 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
 
  function doPost(e)
  {
-   customLog("in doPost");
    var handler = e.parameter.handler;
    
-   customLog("handler: '" + handler + "'");
- 
    if (handler == 'step1')
      {
+       // currently not used
        return step1EventHandler(e);
      }
    else if (handler == 'step2')
      {
        return step2EventHandler(e);
      }
-   //else if (handler == 'grading_results')
-   //  {
-   //    return gradingResultsEventHandler(e);
-   //  }
    else // should never happen
      {
        return null;
@@ -2231,3 +2225,4 @@ function isStudentIdentifier(grade_opt)
   
   return false;
 }
+

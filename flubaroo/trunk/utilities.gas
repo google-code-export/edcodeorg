@@ -507,3 +507,4 @@ rowCache.prototype.getRow = function(sheet, row_num, num_cols)
   // lookup and return the row, which is now in the cache
   return row_cache[row_num];
 };
+

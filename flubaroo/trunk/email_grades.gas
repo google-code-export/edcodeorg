@@ -210,7 +210,7 @@ function emailGrades()
      {
        // pull the email address for this submission
        var q = graded_subm.getQuestionByIndex(email_ques_index);
-       var email_address = q.getGradedVal();
+       var email_address = q.getGradedVal(); // pull from Graded vals, incase teacher wants to edit.
    
        if (!isValidEmailAddress(email_address) || (graded_subm.getAlreadyEmailed() != ""))
            {
