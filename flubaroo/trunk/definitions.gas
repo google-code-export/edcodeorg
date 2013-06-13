@@ -15,24 +15,24 @@ gbl_skip_ui = false;
 // Current version. Shown in "About Flubaroo" dialogue.
 gbl_version_str = "Version 3.0";
 
-// Version update notice. Set this to something other than "" when a new version is made
-// available (gbl_version_str is updated). This message will then be popped up during
-// first install of the updated script.
-gbl_version_update_notice = "You've installed a new version Flubaroo! Visit flubaroo.com/blog to see what's new.";
+// Version update notice. Set this to true when a new version is made
+// available (gbl_version_str is updated). A message will then be popped up during
+// first install of the updated script (see FLB_STR_NEW_VERSION_NOTICE)
+gbl_show_version_update_notice = true;
 
 // Global variables for naming things
 gbl_menu_name = 'Flubaroo';
-gbl_lbl_subm_time = 'Submission Time';
+
+// Names of the sheets for submissions and grades in English language versions
+// of Flubaroo. As of version 3.0, we now support other languages. But these
+// names will always work to support backwards compatability.
 gbl_subm_sheet_name = 'Student Submissions';
 gbl_grades_sheet_name = 'Grades';
 
-// Text put in Grades sheet when a question isnt graded
-gbl_grading_opt_skip = 'Not Graded';
-
 // Global variables that relate to row and column numbers or lengths.
 gbl_grades_start_row_num = 7;
-gbl_num_metrics_cols = 4; // score, percent, 
-                          // number of submissions, already emailed.
+gbl_num_metrics_cols = 5; // score, percent, 
+                          // number of submissions, already emailed, student feedback
 
 // ID's of the metrics columns, starting from 0. These are written out in 
 // 'Grades' after the student identifiers.
@@ -40,17 +40,10 @@ METRIC_TOTAL_POINTS = 0;
 METRIC_PERCENT = 1;
 METRIC_TIMES_SUBMITTED = 2;
 METRIC_EMAILED_GRADE = 3;
-
+METRIC_STUDENT_FEEDBACK = 4; // not really a "metric", but hijack this logic.
 
 // Constants for hidden rows, including order of hidden rows
-gbl_num_hidden_rows = 3;       // number of hidden rows at the bottom of the Grades sheet,
-                                // not including the copies of the original submissions.
-//gbl_num_cols_goodies_row = 3;  // # num of data fields in hidden row containing
-                                // extra "goodies" (below grading options row).
-gbl_num_space_before_hidden = 10;  // number of rows to add before hidden rows   
-
 gbl_num_summary_rows = 4;  // number of rows at the top of 'Grades' that contain summary data.
-
 
 
  HIDDEN_ROW_GRADING_OPTIONS = 1;
@@ -66,58 +59,8 @@ gbl_num_summary_rows = 4;  // number of rows at the top of 'Grades' that contain
               'http://flubaroo.appspot.com/welcome_to_flubaroo_sm.png';
  FLUBAROO_WORKING_IMG_URL =
               'http://flubaroo.appspot.com/ajax-loader.gif';
-   
  
- STEP1_INSTRUCTIONS = "Please select a grading option for each of the "
-                     + "questions in the assignment. Flubaroo has done its "
-                     + "best to guess the best option for you, but you "
-                     + "should check the option for each question yourself.";
- 
- STEP2_INSTRUCTIONS = "Please select which submission should be used as "
-                     + "the Answer Key. Typically this will be a submission "
-                     + "made by you. All other submissions will be "
-                     + "graded against the Answer Key, so take care to "
-                     + "ensure that you select the right one.";// File: definitions.gas
- 
- WAIT_INSTRUCTIONS1 = "Flubaroo is examining your assignment. Please wait...";
- 
- WAIT_INSTRUCTIONS2 = "Please wait while your assignment is graded. This may "
-                    + "take a minute or two to complete.";
- 
- RESULTS_MESSAGE1  = "Grading has completed! A new worksheet called 'Grades' "
-                    + "has been created. "
-                    + "This worksheet contains a grade for each submission, "
-                    + "and a summary of all grades at the top. "
-                    + " ** Note: The 'Grades' sheet is not meant to be modified "
-                    + " in any way, as this can interfere with emailing grades. "
-                    + "If you need to modify this sheet, copy it and modify the copy.";
-   
- RESULTS_MESSAGE2 = "Tips: The very last row shows the percent of students who got each "
-                    + "question correct, with overall low-scoring questions "
-                    + "highlighted in orange. Also, individual students who scored below 70% "
-                    + "will appear in red font.";
- 
- EMAIL_GRADES_INSTRUCTIONS = "Flubaroo can email each student their grade, "
-                             + "as well as the correct answers. "
-                             + "Use the pull-down menu to select the question "
-                             + "that asked students for their email "
-                             + "address. If email addresses "
-                             + "were not collected, then you will not be able "
-                             + "to email grades.";
- 
- ABOUT_FLUBAROO_MSG1 = "Flubaroo is a free, time-saving tool that allows "
-                       + "teachers to quickly grade mutiple choice assignments "
-                       + "and analyze the results.";
-   
- ABOUT_FLUBAROO_MSG2 = "To learn more, visit www.flubaroo.com. Also send "
-                       + "feedback or ideas to feedback@flubaroo.com. ";
- 
-
- CANNOT_FIND_SUBM_MESSAGE = 'Flubaroo could not determine which sheet contains the '
-                            + 'student submissions. Please locate this sheet, '
-                            + 'and rename it to "' + gbl_subm_sheet_name + '". '
-                            + 'Then try grading again.';
- 
+/* grading option identifiers */
 GRADING_OPT_STUD_ID = "Identifies Student";
 GRADING_OPT_SKIP = "Skip Grading";
 GRADING_OPT_1_PT = "1 Point";
@@ -142,20 +85,36 @@ GRADES_OUTPUT_ROW_TYPE_QUESTIONS_FULL = 2;
 GRADES_OUTPUT_ROW_TYPE_ANSWER_KEY = 3;
 GRADES_OUTPUT_ROW_TYPE_GRADING_OPT = 4;
 GRADES_OUTPUT_ROW_TYPE_SUBMISSION_VALS = 5;
+GRADES_OUTPUT_ROW_TYPE_HELP_TIPS = 6;
+
+gbl_num_hidden_rows = 4;       // number of hidden rows at the bottom of the Grades sheet,
+                                // not including the copies of the original submissions.
+gbl_num_space_before_hidden = 10;  // number of rows to add before hidden rows 
 
 // used for function getHiddenRow (member of GradedWorksheet)
 GRADES_HIDDEN_ROW_TYPE_GRADING_OPT = 0;
-GRADES_HIDDEN_ROW_TYPE_ANSWER_KEY = 1;
-GRADES_HIDDEN_ROW_TYPE_QUESTIONS_FULL = 2;
-GRADES_HIDDEN_ROW_TYPE_SUBMISSION_VALS = 3;
+GRADES_HIDDEN_ROW_TYPE_HELP_TIPS = 1;
+GRADES_HIDDEN_ROW_TYPE_ANSWER_KEY = 2;
+GRADES_HIDDEN_ROW_TYPE_QUESTIONS_FULL = 3;
+GRADES_HIDDEN_ROW_TYPE_SUBMISSION_VALS = 4; // must be last!
 
- // Status codes for function return values
- STATUS_OK = 0
- STATUS_NOT_FOUND = 1
- STATUS_NO_EFFECT = 2
+// Status codes for function return values
+STATUS_OK = 0
+STATUS_NOT_FOUND = 1
+STATUS_NO_EFFECT = 2
  
  // script and user properties
 SCRIPT_PROP_HISTOGRAM_URL = "flubaroo_histogram_url";
 SCRIPT_PROP_NUM_GRADED_SUBM = "flubaroo_num_graded_subm";
 SCRIPT_PROP_UI_GRADING_OPT = "flubaroo_ui_grading_opt";
 SCRIPT_PROP_ANSWER_KEY_ROW_NUM = "flubaroo_anskey_row_num";
+SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN = "flubaroo_student_feedback_hidden";
+SCRIPT_PROP_NUM_STUDENT_IDENTIFIERS = "flubaroo_num_student_identifiers";
+SCRIPT_PROP_SHEET_INSTALLED_VERSION = "flubaroo_sheet_installed_version";
+
+USER_PROP_GRADE_MONTH = "flubaroo_grade_month";  // month that count corresponds to
+USER_PROP_GRADE_MONTH_COUNT = "flubaroo_grade_month_count"; // # of times grading has occured (on any assignment) during this month
+USER_PROP_GRADE_LIFETIME_COUNT = "flubaroo_grade_lifetime_count";
+USER_PROP_LANGUAGE_ID = "flubaroo_language_id"; // only set if "Set Language" menu used.
+USER_PROP_LATEST_VERSION_INSTALLED = "flubaroo_latest_version_installed";
+

@@ -29,33 +29,80 @@ rc = null;
    var status = renameSubmissionsSheet();
  }
 
+// justUpgradedThisSheet:
+// Returns true if this is the first time user has upgraded to or installed
+// a new version of Flubaroo in this spreadsheet.
+function justUpgradedThisSheet()
+{
+  // Let the user know if this is a new version.
+  var sver = ScriptProperties.getProperty(SCRIPT_PROP_SHEET_INSTALLED_VERSION);
+  
+  // new version doesn't get set in properties until assignment
+  // is first graded after upgrading.
+  if ((sver == null) || (sver != gbl_version_str))
+    {
+      return true;
+    }
+  
+  return false;
+}
+
+// justUpgradedFirstTime:
+// Returns true if this is the first time the user has upgrade to or installed a new
+// version of Flubaroo.
+function justUpgradedFirstTime()
+{
+  var uver = UserProperties.getProperty(USER_PROP_LATEST_VERSION_INSTALLED);
+  
+  // new version doesn't get set in properties until assignment
+  // is first graded after upgrading.
+  if ((uver == null) || (uver != gbl_version_str))
+    {
+      return true;
+    }
+  
+  return false;
+}
 
  function createFlubarooMenu(ss)
  {
    var grades_present = false;
-   
  
    if (getSheetWithGrades(ss) != null)
      {
        grades_present = true;
      }
- 
+    
    var menuEntries = [];
  
-   if (grades_present)
+   // Only show "Re-grade, Email Grade, View Report, etc, if (a) Grades sheet is present and
+   // (b) user didn't just upgrade to a new version of Flubaroo in this sheet. If they just upgraded,
+   // assignment must be re-graded first, incase format of Grades sheet is different in new version.
+   if (grades_present && !justUpgradedThisSheet())
      {
-       menuEntries.push({name: "Regrade Assignment", functionName: "gradeStep1"});
-       menuEntries.push({name: "Email Grades", functionName: "emailGrades"});
-       menuEntries.push({name: "View Report", functionName: "viewReport"});
+       menuEntries.push({name: langstr("FLB_STR_MENU_REGRADE_ASSIGNMENT"), functionName: "gradeStep1"});
+       menuEntries.push({name: langstr("FLB_STR_MENU_EMAIL_GRADES"), functionName: "emailGrades"});
+       
+       var col_hidden = ScriptProperties.getProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN);
+       if (col_hidden == "true")
+         {
+           menuEntries.push({name: langstr("FLB_STR_MENU_EDIT_FEEDBACK"), functionName: "toggleFeedback"});
+         }
+       else
+         {
+           menuEntries.push({name: langstr("FLB_STR_MENU_HIDE_FEEDBACK"), functionName: "toggleFeedback"});
+         }
+       
+       menuEntries.push({name: langstr("FLB_STR_MENU_VIEW_REPORT"), functionName: "viewReport"});
      }
    else
      {
-       menuEntries.push({name: "Grade Assignment", functionName: "gradeStep1"});
-       //{name: "Set Due Date", functionName: "setDueDate"},
+       menuEntries.push({name: langstr("FLB_STR_MENU_GRADE_ASSIGNMENT"), functionName: "gradeStep1"});
      }
    
-   menuEntries.push(null);
-   menuEntries.push({name: "About Flubaroo", functionName: "aboutFlubaroo"});  
+   menuEntries.push(null); // line break
+   menuEntries.push({name: langstr("FLB_STR_MENU_SET_LANGUAGE"), functionName: "setLanguage"});
+   menuEntries.push({name: langstr("FLB_STR_MENU_ABOUT"), functionName: "aboutFlubaroo"});  
      
    ss.addMenu(gbl_menu_name, menuEntries);   
  }
@@ -69,7 +116,7 @@ rc = null;
  {  
    var ss = SpreadsheetApp.getActiveSpreadsheet();
    var app = UiApp.createApplication()
-                      .setTitle("About Flubaroo")
+                      .setTitle(langstr("FLB_STR_MENU_ABOUT"))
                       .setWidth("500").setHeight("200");
   
    // create the main panel to hold all content in the UI for this step,
@@ -96,10 +143,10 @@ rc = null;
                          .add(app.createLabel("Flubaroo - " + gbl_version_str));
    var hpanel_r_mid = app.createHorizontalPanel()
                          .setStyleAttribute('border-spacing', '3px')
-                         .add(app.createLabel(ABOUT_FLUBAROO_MSG1));
+                         .add(app.createLabel(langstr("FLB_STR_ABOUT_FLUBAROO_MSG1")));
    var hpanel_r_bot = app.createHorizontalPanel()
                          .setStyleAttribute('border-spacing', '3px')
-                         .add(app.createLabel(ABOUT_FLUBAROO_MSG2));
+                         .add(app.createLabel(langstr("FLB_STR_ABOUT_FLUBAROO_MSG2")));
    vpanel2.add(hpanel_r_top);
    vpanel2.add(hpanel_r_mid);
    vpanel2.add(hpanel_r_bot);
@@ -115,6 +162,31 @@ rc = null;
    logAboutFlubaroo();
  }
  
+function toggleFeedback()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var grades_sheet = getSheetWithGrades(ss);
+  
+  var num_stud_identifiers = ScriptProperties.getProperty(SCRIPT_PROP_NUM_STUDENT_IDENTIFIERS);
+  
+  var metric_start_col = 2 + parseInt(num_stud_identifiers);
+  var feedback_col_num =  metric_start_col + METRIC_STUDENT_FEEDBACK;
+  var col_hidden = ScriptProperties.getProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN);
+  
+  if (col_hidden == "true")
+    {
+
+      grades_sheet.showColumns(feedback_col_num);
+      ScriptProperties.setProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN, "false");
+    }
+  else
+    {
+      grades_sheet.hideColumns(feedback_col_num);
+      ScriptProperties.setProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN, "true");
+    }
+  
+  createFlubarooMenu(ss);
+}
 
 // strTrim:
 // Trims the whitespace before and after the string.
@@ -167,25 +239,6 @@ function singleRowToArray(sheet, row_num, num_cols)
      }
  
    return rc.getRow(sheet, row_num, num_cols);
-  
-   //var row_array = new Array();
-   //var val;
-  
-   
-   // grab a single row from the sheet as a 'Range' type.
-   //var row_from_sheet = sheet.getRange(row_num, 1, 1, num_cols);
- 
-   //var values = row_from_sheet.getValues();
-   //var nc = row_from_sheet.getNumColumns();
-   
-   // extract the value in each cell, and stick into the row_array.
-   //for (var c=0; c < nc; c++)
-   //  {
-   //    val = values[0][c];
-   //    row_array.push(val);
-   //  }
- 
-   //return row_array;
  }
 
 // writeArrayToRow:
@@ -247,13 +300,22 @@ function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
  function renameSubmissionsSheet()
  {
    var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var sheet = ss.getSheetByName(langstr("FLB_STR_SHEETNAME_STUD_SUBM"));
+   if (sheet)
+     {
+       // sheet has already been renamed.
+       return STATUS_NO_EFFECT;
+     }
+   
+   // for non-english languages, try with the older style name.
+   // might still be laying around.
    var sheet = ss.getSheetByName(gbl_subm_sheet_name);
    if (sheet)
      {
        // sheet has already been renamed.
        return STATUS_NO_EFFECT;
      }
- 
+   
    var all_sheets = ss.getSheets();
    if (all_sheets.length == 1)
      {
@@ -261,7 +323,7 @@ function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
        // rename it to something more friendly (and which we can refer
        // to later).
        sheet = all_sheets[0];
-       sheet.setName(gbl_subm_sheet_name);
+       sheet.setName(langstr("FLB_STR_SHEETNAME_STUD_SUBM"));
        return STATUS_OK;
      }
    else if (all_sheets.length > 1)
@@ -272,7 +334,7 @@ function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
        if (sheet != null)
          {
            // Rename "Sheet1" to something more friendly.
-           sheet.setName(gbl_subm_sheet_name);
+           sheet.setName(langstr("FLB_STR_SHEETNAME_STUD_SUBM"));
            return STATUS_OK;
          }
      }
@@ -280,6 +342,24 @@ function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
    // Can't locate sheet with submissions. Tell the user.
    return STATUS_NOT_FOUND;
  }
+
+// getTipsRow:
+// pick up by testing and using this everywhere.
+// next is when testing for at least 2 rows (at start of grading), use this to get crrect count
+function getTipsRow(subm_sheet)
+{
+  var help_tips_vals = singleRowToArray(subm_sheet,
+                                        2,
+                                        getNumQuestionsFromSubmissions(subm_sheet));
+
+  if (help_tips_vals[0] != "")
+    {
+      return null;
+    }
+  
+  return help_tips_vals;
+}
+
 
 function createGATrackingUrl(encoded_page_name)
 {
@@ -291,7 +371,7 @@ function createGATrackingUrl(encoded_page_name)
     }
  
   var ga_url1 = "http://www.google-analytics.com/__utm.gif?utmwv=5.2.2&utmhn=www.flubaroo-analytics.com&utmcs=-&utmul=en-us&utmje=1&utmdt&utmr=0=";
-  var ga_url2 = "&utmac=UA-22064161-3&utmcc=" + utmcc + "&utmu=DI~";
+  var ga_url2 = "&utmac=UA-22064161-6&utmcc=" + utmcc + "&utmu=DI~";
   var ga_url_full = ga_url1 + encoded_page_name + "&utmp=" + encoded_page_name + ga_url2;
   
   return ga_url_full;
@@ -311,7 +391,8 @@ function createGACookie()
   var flubaroo_uid = UserProperties.getProperty("flubaroo_uid");
   if ((flubaroo_uid == null) || (flubaroo_uid == ""))
     {
-      // shouldn't happen unless user explicitly removed flubaroo_uid from properties.
+      // shouldn't happen unless user explicitly removed flubaroo_uid from properties,
+      // or hasn't graded yet.
       return null;
     }
   
@@ -335,10 +416,70 @@ function logGrading(ss_name)
         {
           var response = UrlFetchApp.fetch(ga_url);
         }
+      
+      logActiveUserGrading();
     }
   else // sample assignment
     {
       var ga_url = createGATrackingUrl("Sample%20Graded");
+      if (ga_url)
+        {
+          var response = UrlFetchApp.fetch(ga_url);
+        }
+    }
+}
+
+function logActiveUserGrading()
+{
+  // track 30 day actives using month. to be counted as an active,
+  // user, user must grade at least 1 assignment during the month.
+  // we also check that the lifetime usage > 4, to filter out
+  // people just playing around with or testing out Flubaroo.
+  var track_month = UserProperties.getProperty(USER_PROP_GRADE_MONTH);
+  var track_month_count = UserProperties.getProperty(USER_PROP_GRADE_MONTH_COUNT);
+  var track_lifetime_count = UserProperties.getProperty(USER_PROP_GRADE_LIFETIME_COUNT);
+      
+  var d = new Date();
+  var current_month = (d.getMonth() + 1).toString();
+      
+  // init if never setup
+  if (track_month == null)
+    {
+      track_month = current_month;
+    }
+  if (track_month_count == null)
+    {
+      track_month_count = "0";
+    }
+  if (track_lifetime_count == null)
+    {
+      track_lifetime_count = "0";
+    }
+            
+  if (current_month == track_month)
+    {
+      track_month_count = parseInt(track_month_count);
+      track_month_count++;
+      track_month_count = track_month_count.toString();
+    }
+  else
+    {
+      track_month = current_month;
+      track_month_count = "1"; // start over
+    }
+  
+  track_lifetime_count = parseInt(track_lifetime_count);
+  track_lifetime_count++;
+  track_lifetime_count = track_lifetime_count.toString();
+      
+  UserProperties.setProperty(USER_PROP_GRADE_MONTH, track_month);
+  UserProperties.setProperty(USER_PROP_GRADE_MONTH_COUNT, track_month_count);
+  UserProperties.setProperty(USER_PROP_GRADE_LIFETIME_COUNT, track_lifetime_count);
+  
+  // log once and only once per month
+  if ((track_lifetime_count > 4) && (track_month_count == "1"))
+    {  
+      var ga_url = createGATrackingUrl("Active%20Monthly%20Users"); 
       if (ga_url)
         {
           var response = UrlFetchApp.fetch(ga_url);
@@ -382,6 +523,26 @@ function logRepeatInstall()
     }
 }
 
+// setCurrentVersionInfo:
+// Called just before grading occurs. So new version isn't set after install
+// until after first grade.
+function setCurrentVersionInfo()
+{
+  var sver = ScriptProperties.getProperty(SCRIPT_PROP_SHEET_INSTALLED_VERSION);
+  if ((sver == null) || (sver != gbl_version_str))
+    {
+      ScriptProperties.setProperty(SCRIPT_PROP_SHEET_INSTALLED_VERSION, gbl_version_str);
+    }
+
+  // take note of the latest version the user has installed across all sheets.
+  // used to show user version update notice.
+  var uver = UserProperties.getProperty(USER_PROP_LATEST_VERSION_INSTALLED);
+  if ((uver == null) || (uver != gbl_version_str))
+    {
+      UserProperties.setProperty(USER_PROP_LATEST_VERSION_INSTALLED, gbl_version_str);
+    }
+}
+
 function setFlubarooUid()
 { 
   var flubaroo_uid = UserProperties.getProperty("flubaroo_uid");
@@ -399,14 +560,13 @@ function setFlubarooUid()
 
 function showNewVersionNotice()
 {
-  // Let the user know if this is a new version.
-  var cver = UserProperties.getProperty("flubaroo_current_version");
-  
-  if ((cver == null) || (cver != gbl_version_str))
+  // check if this is the first time the user has upgrade to or installed a new
+  // version of Flubaroo. if so, just this once, we'll show them a message.
+  if (justUpgradedFirstTime())
     {
-      if (gbl_version_update_notice != "")
+      if (gbl_show_version_update_notice && (langstr("FLB_STR_NEW_VERSION_NOTICE") != ""))
         {
-          Browser.msgBox("New Flubaroo Version!", gbl_version_update_notice,
+          Browser.msgBox("New Flubaroo Version!", langstr("FLB_STR_NEW_VERSION_NOTICE"),
                          Browser.Buttons.OK);
         }
     }

@@ -13,11 +13,8 @@
    var grades_sheet = getSheetWithGrades(ss);  
    if (grades_sheet == null)
      {
-       Browser.msgBox("Flubaroo Notification",
-                      "Flubaroo cannot email grades for this assignment "
-                      + "because there is no sheet named " + gbl_grades_sheet_name
-                      + " present. Please grade the assignment before "
-                      + " continuing.",
+       Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
+                      langstr("FLB_STR_CANNOT_FIND_GRADES_MSG") + langstr("FLB_STR_SHEETNAME_GRADES"),
                       Browser.Buttons.OK);
        return;
      }
@@ -28,7 +25,7 @@
  
  function createReportUI(ss, grades_sheet)
  {
-   var app = UiApp.createApplication().setTitle('Flubaroo - Grading Report')
+   var app = UiApp.createApplication().setTitle(langstr("FLB_STR_VIEW_REPORT_WINDOW_TITLE"))
                                       .setWidth("680").setHeight("490");
      
    var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_META);
@@ -57,12 +54,13 @@
                        .setStyleAttribute('border-spacing', '10px');
          
    var grid = app.createGrid(4,1).setCellSpacing(5);
-   grid.setWidget(0, 0, app.createLabel('Report for: ' + title)
+   
+   grid.setWidget(0, 0, app.createLabel(langstr("FLB_STR_GRADE_SUMMARY_TEXT_REPORT_FOR") + ': ' + title)
                               .setStyleAttribute('textDecoration','underline'));
-   grid.setWidget(1, 0, app.createLabel('Points Possible: ' + points_possible));
-   grid.setWidget(2, 0, app.createLabel('Average Score: ' + avg_subm_score + ' points'));
-   grid.setWidget(3, 0, app.createLabel('Counted Submissions: ' + num_subm));
- 
+   grid.setWidget(1, 0, app.createLabel(langstr("FLB_STR_GRADE_SUMMARY_TEXT_POINTS_POSSIBLE") + ': ' + points_possible));
+   grid.setWidget(2, 0, app.createLabel(langstr("FLB_STR_GRADE_SUMMARY_TEXT_AVERAGE_POINTS") +  ': ' + avg_subm_score));
+   grid.setWidget(3, 0, app.createLabel(langstr("FLB_STR_GRADE_SUMMARY_TEXT_COUNTED_SUBMISSIONS") +  ': ' + num_subm));
+   
    // add a top level hpanel for instructions and picture
    var hpanel = app.createHorizontalPanel()
        .setStyleAttribute('border-spacing', '10px')
@@ -73,7 +71,7 @@
         
     // add the Continue and Cancel buttons at the bottom.
    var btnGrid = app.createGrid(1, 1).setStyleAttribute('float', 'right');
-   var btnSubmit = app.createButton('Email Me Report',handler)
+   var btnSubmit = app.createButton(langstr("FLB_STR_VIEW_REPORT_BUTTON_EMAIL_ME"),handler)
                       .setId('EMAIL')
    
    btnGrid.setWidget(0,0,btnSubmit);
@@ -103,16 +101,16 @@
    
    var email_address = e.parameter.email_addr;
    
-   var msg_title = 'Report for grading of: ' + title;
+   var msg_title = langstr("FLB_STR_GRADE_SUMMARY_TEXT_REPORT_FOR") + ": " + title;
  
    // form the html to email
    var html_body = '<html><body bgcolor="white">';
-   html_body += '<p><b>Report for: <a href="' + ss.getUrl() + '">' + title + '</a></b>';
+   html_body += '<p><b>' + langstr("FLB_STR_GRADE_SUMMARY_TEXT_REPORT_FOR") + ': <a href="' + ss.getUrl() + '">' + title + '</a></b>';
    html_body += '</p>';
    html_body += '<table border=0 cellspacing=2>';
-   html_body += '<tr><td>Points Possible:</td><td>' + points_possible + '</td></tr>';
-   html_body += '<tr><td>Average Score:</td><td>' + avg_subm_score + '</td></tr>';
-   html_body += '<tr><td>Counted Submissions:</td><td>' + num_subm + '</td></tr>';
+   html_body += '<tr><td>' + langstr("FLB_STR_GRADE_SUMMARY_TEXT_POINTS_POSSIBLE") + ':</td><td>' + points_possible + '</td></tr>';
+   html_body += '<tr><td>' + langstr("FLB_STR_GRADE_SUMMARY_TEXT_AVERAGE_POINTS") + ':</td><td>' + avg_subm_score + '</td></tr>';
+   html_body += '<tr><td>' + langstr("FLB_STR_GRADE_SUMMARY_TEXT_COUNTED_SUBMISSIONS") + ':</td><td>' + num_subm + '</td></tr>';
    html_body += '</table><br>';
    
    html_body += '<img src="' + chart_url + '">';
@@ -123,8 +121,8 @@
    MailApp.sendEmail(email_address, msg_title, "",
                              {htmlBody: html_body, noReply: true, name: "Assignment Grader"});
    
-   Browser.msgBox('Flubaroo Notification',
-                  'The report has been emailed to: ' + email_address,
+   Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
+                  langstr("FLB_STR_VIEW_REPORT_EMAIL_NOTIFICATION") + ': ' + email_address,
                   Browser.Buttons.OK);
    return;
  }

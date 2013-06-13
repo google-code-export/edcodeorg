@@ -17,4 +17,27 @@
 //                         Added extra hidden rows to make 'Grades' self-contained.
 //                         Broke 'flubaroo.gas' into multiple files.
 //   Version 2.1, 11/29/12: Fixes for issues 8 and 9.
-//   Version 3.0 ...
+
+/*   Version 3.0, 6/13/13:
+     Many changes in this version. The code has been compltely re-written from scratch
+     (an effort which started a year ago) to make it easier to modify and extend by myself
+     and others. Also:
+      
+      Bug / Issue fixes:
+      - Fix for recent bug in which Flubaroo runs forever (sheet reference issue)
+      - Issue 1 resolved
+      
+      New Features:
+      - Flubaroo won't re-email students who have already been emailed (Issue 2).
+      - Flubaroo can now send an optional help tip per question to students in the email (Issue 3).
+      - Flubaroo can now send individualized feedback to each student in the email.
+      - Flubaroo now supports Spanish!!! (Issue 4). Special thanks to these people who collaboratively 
+        translated Flubaroo into Spanish in record time:
+
+           ** Felipe Calvo **
+           ** Gabriel Crivelli **
+           ** Luis Escolar **
+           ** Iñaki Fernández **
+           ** Manuel Fernández **
+           ** Gatech López **
+*/                

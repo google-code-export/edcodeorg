@@ -62,41 +62,6 @@ GradesWorksheet.prototype.initGWSVars = function(spreadsheet, init_type)
   this.avg_subm_score;
  
   this.answer_key_row_num = ScriptProperties.getProperty(SCRIPT_PROP_ANSWER_KEY_ROW_NUM)
-
-  if (this.init_type == INIT_TYPE_SUBM)
-    {
-      // read in the questions asked
-      this.question_vals = singleRowToArray(this.submissions_sheet, 1,
-                                            getNumQuestionsFromSubmissions(this.submissions_sheet));
-      this.question_vals[0] = gbl_lbl_subm_time;
-
-      // pull in the grading options, which were set during grading (steps 1 and 2).
-      var grade_opt_str = ScriptProperties.getProperty(SCRIPT_PROP_UI_GRADING_OPT);
-      this.grading_options = grade_opt_str.split(",");
-      
-      // read through the grading options to initialize variables like:
-      //      points_possible, num_student_identifiers, and num_gradeable_questions
-      this.processGradingOptions();
-    }
-  
-  else  // INIT_TYPE_GRADED_*
-    {
-      // read in the hidden row containing the questions asked 
-      this.question_vals = this.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_QUESTIONS_FULL, "");
-     
-      // read in the hidden row containing the grading_options
-      this.grading_options = this.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_GRADING_OPT, "");
-     
-      // read through the grading options to initialize variables like:
-      //      points_possible, num_student_identifiers, and num_gradeable_questions
-      this.processGradingOptions();
- 
-      // pull in some info from the summary table at the top.
-      var summary_range = this.grades_sheet.getRange(2, 2, gbl_num_summary_rows, 1);
-      var summary_col = summary_range.getValues();
-      this.avg_subm_score = summary_col[1];
-      this.num_low = summary_col[3]; 
-    }
 }
 
 GradesWorksheet.prototype.getPointsPossible = function()
@@ -237,6 +202,19 @@ GradesWorksheet.prototype.writeGradedSubmission = function(graded_subm)
 // Performs the grading of all rows compared to the answer key. 
 GradesWorksheet.prototype.processStudentSubmissionsSheet = function()
 {       
+   // read in the questions asked
+   this.question_vals = singleRowToArray(this.submissions_sheet, 1,
+                                        getNumQuestionsFromSubmissions(this.submissions_sheet));
+   this.question_vals[0] = langstr("FLB_STR_GRADE_STEP2_LABEL_SUBMISSION_TIME");
+
+   // pull in the grading options, which were set during grading (steps 1 and 2).
+   var grade_opt_str = ScriptProperties.getProperty(SCRIPT_PROP_UI_GRADING_OPT);
+   this.grading_options = grade_opt_str.split(",");
+      
+   // read through the grading options to initialize variables like:
+   //      points_possible, num_student_identifiers, and num_gradeable_questions
+   this.processGradingOptions();
+  
    // collect the answers from the Answer Key row. make all lowercase so we're
    // case insentive when comparing to text submissions.
    var answer_key_vals = singleRowToArray(this.submissions_sheet,
@@ -252,7 +230,20 @@ GradesWorksheet.prototype.processStudentSubmissionsSheet = function()
            answer_key_vals_lc[i] = strTrim(answer_key_vals_lc[i].toLowerCase());
          }
      }
-    
+
+   // collect the help tips, if any are present. these will always be in the 2nd row
+   // of the form
+   // case insentive when comparing to text submissions.
+   var help_tips_vals = getTipsRow(this.submissions_sheet);
+  
+   var help_tips_present = false;
+   if (help_tips_vals != null)
+     {
+       help_tips_present = true;
+     }
+  
+   customLog("pss, help_tips_present: " + help_tips_present);
+  
    var subm_row_num;
    var grades_to_write;
    
@@ -269,12 +260,17 @@ GradesWorksheet.prototype.processStudentSubmissionsSheet = function()
           // so skip it.
           continue;
         }
+      else if ((s == 1) && help_tips_present)
+        {
+          // skip over help tips, if present.
+          continue;
+        }
       
       customLog("processing submission " + s);
            
       // create a new GradedSubmission from this submission
       var new_graded_subm = new GradedSubmission(this, this.submissions_sheet, this.grades_sheet,
-                                                 this.question_vals,
+                                                 this.question_vals, help_tips_present, help_tips_vals,
                                                  this.grading_options, this.points_possible,
                                                  answer_key_vals, answer_key_vals_lc, 
                                                  this.num_student_identifiers,
@@ -322,8 +318,39 @@ GradesWorksheet.prototype.processStudentSubmissionsSheet = function()
 // Reads in all information in an existing 'Grades' sheet.
 GradesWorksheet.prototype.processGradesSheet = function()
 {
-  var answer_key_vals = this.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_ANSWER_KEY, "");
+  // read in the hidden row containing the questions asked 
+  this.question_vals = this.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_QUESTIONS_FULL, "");
      
+  // read in the hidden row containing the grading_options
+  this.grading_options = this.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_GRADING_OPT, "");
+     
+  // read through the grading options to initialize variables like:
+  //      points_possible, num_student_identifiers, and num_gradeable_questions
+  this.processGradingOptions();
+ 
+  // pull in some info from the summary table at the top.
+  var summary_range = this.grades_sheet.getRange(2, 2, gbl_num_summary_rows, 1);
+  var summary_col = summary_range.getValues();
+  this.avg_subm_score = summary_col[1];
+  this.num_low = summary_col[3]; 
+
+  var answer_key_vals = this.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_ANSWER_KEY, "");
+  var help_tips_vals = this.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_HELP_TIPS, "");
+
+  // check if any help tips are present. they will be if there's at least one
+  // non-empty cell in this row. otherwise the row will be entirely blank.
+  var help_tips_present = false;
+  for (var i=0; i < help_tips_vals.length; i++)
+    {
+      if (help_tips_vals[i] != "")
+        {
+          help_tips_present = true;
+          break;
+        }
+    }
+  
+  customLog("pgs, help_tips_present: " + help_tips_present);
+  
   var max_submissions_to_read = 0;
   
   if (this.init_type == INIT_TYPE_GRADED_META)
@@ -345,7 +372,7 @@ GradesWorksheet.prototype.processGradesSheet = function()
     {
       // create a new GradedSubmission from this graded submission
       var new_graded_subm = new GradedSubmission(this, this.submissions_sheet, this.grades_sheet,
-                                                 this.question_vals,
+                                                 this.question_vals, help_tips_present, help_tips_vals,
                                                  this.grading_options, this.points_possible,
                                                  answer_key_vals, answer_key_vals,
                                                  this.num_student_identifiers,
@@ -387,7 +414,7 @@ GradesWorksheet.prototype.processGradingOptions = function()
               this.points_possible += getPointsWorth(gopt);
             }
         }
-    }  
+    }
 }
 
 
@@ -409,7 +436,7 @@ GradesWorksheet.prototype.prepNewGradesSheet = function()
     }
   
   // next, create a blank sheet for the grades.
-  this.grades_sheet = this.spreadsheet.insertSheet(gbl_grades_sheet_name);
+  this.grades_sheet = this.spreadsheet.insertSheet(langstr("FLB_STR_SHEETNAME_GRADES"));
     
   // Enter enough blank rows into the new Grades sheet. It
   // starts with 100, but we may need more. Not having enough
@@ -428,21 +455,21 @@ GradesWorksheet.prototype.prepNewGradesSheet = function()
 
 // writeGradesSheet:
 // Places the grades into a new sheet called 'Grades'. 
-GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info)
+GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info, student_feedback_info)
  {     
    // capture the row of questions from the submissions sheet so we can
    // echo it at the top of the grades sheet.
    var question_vals = singleRowToArray(this.submissions_sheet, 1, getNumQuestionsFromSubmissions(this.submissions_sheet));
-   question_vals[0] = gbl_lbl_subm_time;
+   question_vals[0] = langstr("FLB_STR_GRADE_STEP2_LABEL_SUBMISSION_TIME");
   
    // create an area at the top of this sheet where the grades
    // summary will go after grading is done.
-   setCellValue(this.grades_sheet, 1, 1, "Summary:");
+   setCellValue(this.grades_sheet, 1, 1, langstr("FLB_STR_GRADE_SUMMARY_TEXT_SUMMARY") + ":");
    this.grades_sheet.getRange(1, 1, 1, 1).setFontWeight("bold");
-   setCellValue(this.grades_sheet, 2, 1, "Points Possible");
-   setCellValue(this.grades_sheet, 3, 1, "Average Points");
-   setCellValue(this.grades_sheet, 4, 1, "Counted Submissions");
-   setCellValue(this.grades_sheet, 5, 1, "Number of Low Scoring Questions");
+   setCellValue(this.grades_sheet, 2, 1, langstr("FLB_STR_GRADE_SUMMARY_TEXT_POINTS_POSSIBLE"));
+   setCellValue(this.grades_sheet, 3, 1, langstr("FLB_STR_GRADE_SUMMARY_TEXT_AVERAGE_POINTS"));
+   setCellValue(this.grades_sheet, 4, 1, langstr("FLB_STR_GRADE_SUMMARY_TEXT_COUNTED_SUBMISSIONS"));
+   setCellValue(this.grades_sheet, 5, 1, langstr("FLB_STR_GRADE_SUMMARY_TEXT_NUM_LOW_SCORING"));
 
    var graded_subm = this.getFirstGradedSubmission();
    var headers = graded_subm.createRowForGradesSheet(GRADES_OUTPUT_ROW_TYPE_QUESTIONS_HEADER);       
@@ -479,16 +506,25 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info)
    // these include information like the grading options, the answer key values. This information is referenced later 
    // when doing things like emailing grades, creating reports, etc.
    var first_graded_subm = this.getFirstGradedSubmission(); // first submission used to pull grading options, answer key, 
-                                                      // question text, since these are common to all graded submissions.
+                                                           // question text, since these are common to all graded submissions.
    
    var grading_opt_row = first_graded_subm.createRowForGradesSheet(GRADES_OUTPUT_ROW_TYPE_GRADING_OPT);       
    writeArrayToRow(this.grades_sheet, hidden_row_num_start + added_hidden_row_index++, 1, grading_opt_row, false, "");
 
+   var help_tips_row = first_graded_subm.createRowForGradesSheet(GRADES_OUTPUT_ROW_TYPE_HELP_TIPS);       
+   writeArrayToRow(this.grades_sheet, hidden_row_num_start + added_hidden_row_index++, 1, help_tips_row, false, "");
+   
    var answer_key_row = first_graded_subm.createRowForGradesSheet(GRADES_OUTPUT_ROW_TYPE_ANSWER_KEY);       
    writeArrayToRow(this.grades_sheet, hidden_row_num_start + added_hidden_row_index++, 1, answer_key_row, false, "");
    
    var question_text_row = first_graded_subm.createRowForGradesSheet(GRADES_OUTPUT_ROW_TYPE_QUESTIONS_FULL);       
    writeArrayToRow(this.grades_sheet, hidden_row_num_start + added_hidden_row_index++, 1, question_text_row, false, "");
+   
+   // hide the hidden columns
+   var metric_start_col = this.num_student_identifiers + 2;
+   var feedback_col_num =  metric_start_col + METRIC_STUDENT_FEEDBACK;
+   this.grades_sheet.hideColumns(feedback_col_num);
+   ScriptProperties.setProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN, "true"); 
    
    // set active cell to be upper-left cell Grades sheet.
    var ar = this.grades_sheet.getRange(1, 1, 1, 1);
@@ -508,7 +544,17 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info)
                 && (graded_subm.getTimesSubmitted() == already_emailed_info[fingerprint]))
             {
               // no need to email their grade again
-              graded_subm.setAlreadyEmailed("Yes");
+              graded_subm.setAlreadyEmailed("x");
+            }
+        }
+      
+      if (student_feedback_info)
+        {
+          var fingerprint = graded_subm.getSubmFingerprint();
+          if (fingerprint in student_feedback_info) 
+            {
+              // no need to email their grade again
+              graded_subm.setStudentFeedback(student_feedback_info[fingerprint]);
             }
         }
       
@@ -521,6 +567,8 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info)
       writeArrayToRow(this.grades_sheet, hidden_row_num_start + added_hidden_row_index++, 1, 
                       submission_val_row, false, "");
       
+      var row_num_d = hidden_row_num_start + added_hidden_row_index;
+      
       // Calculate an average score for all submissions.
       subm_score = graded_subm.getScorePoints();
       this.avg_subm_score += subm_score;
@@ -531,7 +579,7 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info)
   
    // hide the hidden rows
    this.grades_sheet.hideRows(hidden_row_num_start, added_hidden_row_index);
-   
+      
    // for each question, calculate the percent of students that got it correct. Write this 
    // out in the row just below the last graded submission.
    this.num_low = this.calculatePercentages();
@@ -551,7 +599,15 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info)
    setCellValue(this.grades_sheet, 3, 2, this.avg_subm_score);
    setCellValue(this.grades_sheet, 4, 2, this.getNumGradedSubmissions());
    setCellValue(this.grades_sheet, 5, 2, this.num_low);
-      
+   
+   // also record number of student identifiers as a property, since we need to 
+   // know it when generating the Flubaroo menu.
+   ScriptProperties.setProperty(SCRIPT_PROP_NUM_STUDENT_IDENTIFIERS, this.num_student_identifiers);
+   
+   // for ease of reading, freeze top rows and student id columns
+   this.grades_sheet.setFrozenRows(gbl_grades_start_row_num);
+   this.grades_sheet.setFrozenColumns(1 + this.num_student_identifiers);
+         
    // Keep track (anonymously) of number of assignments graded
    // using Flubaroo. Try to not count the "try it now" sample
    // in this total, though.
@@ -709,9 +765,33 @@ GradesWorksheet.prototype.getAlreadyEmailedInfo = function()
   return already_emailed;
 }
 
+// getStudentFeedbackInfo:
+// Note: Only for use when the init_type is INIT_TYPE_GRADED_PARTIAL or INIT_TYPE_GRADED_FULL.
+// Returns an associative array, indexed by fingerprints, which contains the optional
+// feedback entered by a teacher for a given student. If none, no fingerprint for that 
+// student will exist.
+GradesWorksheet.prototype.getStudentFeedbackInfo = function()
+{
+  var student_feedback = new Array();
+  
+  for (var graded_subm = this.getFirstGradedSubmission(); graded_subm != null; 
+            graded_subm = this.getNextGradedSubmission())
+    {
+      var feedback = graded_subm.getStudentFeedback();
+    
+      if (feedback != "")
+        {
+          student_feedback[graded_subm.getSubmFingerprint()] = feedback;
+        }
+    }
+  
+  return student_feedback;
+}
+
 // GradedQuestion class:
 // Contains information about a question that can be, or has been, graded.  
 function GradedQuestion(ques_index, full_question_text, full_subm_text, gopt, 
+                        help_tips_present, help_tips_val,
                         full_anskey_text, full_anskey_text_lc, 
                         graded_val, is_timestamp)
 {  
@@ -722,6 +802,8 @@ function GradedQuestion(ques_index, full_question_text, full_subm_text, gopt,
   this.full_anskey_text_lc = full_anskey_text_lc;
   this.graded_val = graded_val;
   this.is_timestamp = is_timestamp;
+  this.help_tips_present = help_tips_present;
+  this.help_tips_val = help_tips_val;
   
   // ques_index: This ties the question back to the GradedSubmission it originates from, in which all
   // information about questions are stored in linear arrays. This is the index into that array.
@@ -772,6 +854,18 @@ GradedQuestion.prototype.getQuesIndex = function()
 {
   return this.ques_index;
 }
+
+GradedQuestion.prototype.getHelpTip = function()
+{
+  if (this.help_tips_present)
+    {
+      return this.help_tips_val;
+    }
+  else
+    {
+      return "";
+    }
+}
   
 // GradedSubmission class:
 // The GradedSubmission class contains all the information about a submission
@@ -785,7 +879,7 @@ GradedQuestion.prototype.getQuesIndex = function()
 //     entries from the Grades sheet.
 function GradedSubmission(gws,
                           submissions_sheet, grades_sheet,
-                          question_vals, 
+                          question_vals, help_tips_present, help_tips_vals,
                           grading_options, points_possible,
                           answer_key_vals, answer_key_vals_lc, 
                           num_stud_id, row_num, init_type)
@@ -798,6 +892,8 @@ function GradedSubmission(gws,
   this.grading_options = grading_options;
   this.points_possible = points_possible;
   this.question_vals = question_vals;
+  this.help_tips_present = help_tips_present;
+  this.help_tips_vals = help_tips_vals;
   this.num_student_identifiers = num_stud_id;
   this.row_num = row_num;
   this.init_type = init_type;
@@ -809,6 +905,7 @@ function GradedSubmission(gws,
   this.score_percent = 0.0;
   this.times_submitted = 1;
   this.already_emailed = "";
+  this.student_feedback = "";
   this.q_index = 0;
 
   this.initGSVars();
@@ -843,6 +940,8 @@ GradedSubmission.prototype.initGSVars = function()
       this.times_submitted = this.graded_vals[vindex - 1];
       vindex = metric_start_col + METRIC_EMAILED_GRADE;
       this.already_emailed = this.graded_vals[vindex - 1];
+      vindex = metric_start_col + METRIC_STUDENT_FEEDBACK;
+      this.student_feedback = this.graded_vals[vindex - 1];
       
       if (this.init_type == INIT_TYPE_GRADED_FULL)
         {
@@ -905,7 +1004,7 @@ GradedSubmission.prototype.gradeIt = function()
            else
              {
                // Teacher indicated to skip grading on this question
-               grade_val = gbl_grading_opt_skip;
+               grade_val = langstr("FLB_STR_NOT_GRADED");
              }
          }
        else if (q.getGradingOption() == GRADING_OPT_STUD_ID)
@@ -984,6 +1083,16 @@ GradedSubmission.prototype.setAlreadyEmailed = function(status)
   this.already_emailed = status;
 }
 
+GradedSubmission.prototype.getStudentFeedback = function()
+{
+  return this.student_feedback;
+}
+
+GradedSubmission.prototype.setStudentFeedback = function(feedback)
+{
+  this.student_feedback = feedback;
+}
+
 GradedSubmission.prototype.getScorePercent = function()
 {
   return this.score_percent;
@@ -997,6 +1106,11 @@ GradedSubmission.prototype.getScorePoints = function()
 GradedSubmission.prototype.getTimestamp = function()
 {
   return this.graded_vals[0];
+}
+
+GradedSubmission.prototype.getHelpTipsPresent= function()
+{  
+  return this.help_tips_present;
 }
   
 // getFirstQuestion / getNextQuestion
@@ -1041,8 +1155,9 @@ GradedSubmission.prototype.getNextQuestion = function(q)
   
   for (; q_index < this.grading_options.length; q_index++)
     {
-      // Don't return fake questions, like "num points" or "times submitted"
+      // Don't return fake questions (metrics), like "num points" or "times submitted"
       // Note: Fake questions only happen when reading in from the Grades sheet. 
+      //       These questions will have no grading option.
       if (this.grading_options[q_index] != "")
         {
           g_ques = this.getQuestionByIndex(q_index);
@@ -1065,30 +1180,13 @@ GradedSubmission.prototype.getQuestionByIndex = function(ques_index)
       is_timestamp = false;
     }
       
-  var subm_val = "";
-  var gopt = this.grading_options[ques_index];
-  
-  //if (this.init_type == INIT_TYPE_GRADED_FULL)
-  //  {
-      subm_val = this.submission_vals[ques_index];
-  //  }
-  //else // INIT_TYPE_GRADED_PARTIAL or INIT_TYPE_GRADED_META
-  //  {
-  //    if (is_timestamp || (gopt == GRADING_OPT_STUD_ID))
-  //      {
-  //        // info that would populate the submission_vals array is not read
-  //        // in for this init type. so what we can't get, just steal from
-  //        // the graded row.
-  //        subm_val = this.graded_vals[ques_index];
-  //      }
-  //  }
-  
   //customLog("new graded question for index: " + ques_index);
   //customLog("this.graded_vals[" + ques_index + "] = " + this.graded_vals[ques_index]);
   var g_ques = new GradedQuestion(ques_index,
                                   this.question_vals[ques_index],
-                                  subm_val,
+                                  this.submission_vals[ques_index],
                                   this.grading_options[ques_index],
+                                  this.help_tips_present, this.help_tips_vals[ques_index],
                                   this.answer_key_vals[ques_index],
                                   this.answer_key_vals_lc[ques_index],
                                   this.graded_vals[ques_index],
@@ -1109,7 +1207,7 @@ GradedSubmission.prototype.setGradedQuestionVal = function(q)
 // a given submission, as well as information such as the questions asked,
 // the answer key, and the grading options used. Much of this information
 // is written out to the Grades sheet in one row or another.
-// To help procude that formatted output for the Grades sheet, this function
+// To help produce that formatted output for the Grades sheet, this function
 // creates a row that's ready to be written to the 'Grades' sheet, starting from
 // the first column. The argument indicates the type of row to be written.
 // Valid values for output_row_type are:
@@ -1120,6 +1218,8 @@ GradedSubmission.prototype.setGradedQuestionVal = function(q)
 //    GRADES_OUTPUT_ROW_TYPE_SUBMISSION_VALS:  Original submissions made by the student
 //    GRADES_OUTPUT_ROW_TYPE_ANSWER_KEY:       Full answers from the answer key submission (hidden row)
 //    GRADES_OUTPUT_ROW_TYPE_GRADING_OPT:      Grading options for each question (hidden row)
+//    GRADES_OUTPUT_ROW_TYPE_HELP_TIPS:        Optional help tips, copied over from 
+//                                             the Student Submissions sheet (hidden row).
 GradedSubmission.prototype.createRowForGradesSheet = function(output_row_type)
 {
   var output_row = new Array(1);
@@ -1142,9 +1242,28 @@ GradedSubmission.prototype.createRowForGradesSheet = function(output_row_type)
     {
       data_vals = this.submission_vals;
     }
-  else // GRADES_OUTPUT_ROW_TYPE_GRADING_OPT
+  else if (output_row_type == GRADES_OUTPUT_ROW_TYPE_GRADING_OPT)
     {
       data_vals = this.grading_options;
+    }
+  else if (output_row_type == GRADES_OUTPUT_ROW_TYPE_HELP_TIPS)
+    {
+      if (!this.help_tips_present)
+        {
+          // output entirely blank row
+          data_vals = new Array(this.help_tips_vals.length);
+          for (var i=0; i < data_vals.length; i++)
+            {
+              // need to create a new array for this, otherwise
+              // data_vals will point to the first submission.
+              data_vals[i] = "";
+            }
+        }
+      else
+        {
+          // use the help tips provided in row #2.
+          data_vals = this.help_tips_vals;
+        }
     }
   
   // first write out the timestamp
@@ -1166,8 +1285,8 @@ GradedSubmission.prototype.createRowForGradesSheet = function(output_row_type)
         }
     }
    
-   // next write out all the metrics, such as score in point, score in percent,
-   // and number of times submitted.
+   // if a row for a grded submission, write out all the metrics, such as 
+   // score in points, score in percent, and number of times submitted.
    if (output_row_type == GRADES_OUTPUT_ROW_TYPE_GRADED_VALS)
      {
        // next write the total score as points and percent
@@ -1181,26 +1300,34 @@ GradedSubmission.prototype.createRowForGradesSheet = function(output_row_type)
        
        // next whether or not we've email a grade for this student
        output_row.push(this.already_emailed);
+       
+       // last push any feedback to send the student
+       output_row.push(this.student_feedback);
      }
+  
+   // if the header row, include the names of the metrics
    else if (output_row_type == GRADES_OUTPUT_ROW_TYPE_QUESTIONS_HEADER)
      {
-       output_row.push("Total Points");
-       output_row.push("Percent");
-       output_row.push("Times Submitted");
-       output_row.push("Emailed Grade?");
+       // include column names for the various metrics reported for each graded submission
+       output_row.push(langstr("FLB_STR_GRADES_SHEET_COLUMN_NAME_TOTAL_POINTS"));
+       output_row.push(langstr("FLB_STR_GRADES_SHEET_COLUMN_NAME_PERCENT"));
+       output_row.push(langstr("FLB_STR_GRADES_SHEET_COLUMN_NAME_TIMES_SUBMITTED"));
+       output_row.push(langstr("FLB_STR_GRADES_SHEET_COLUMN_NAME_EMAILED_GRADE"));
+       output_row.push(langstr("FLB_STR_GRADES_SHEET_COLUMN_NAME_STUDENT_FEEDBACK"));
      }
+  
+   // not a header row or graded values row, so no values to write for these metrics.
+   // instead, just record blanks in the columns where the metrics go.
    else  
      {
-       // not a header row or graded values row, so no values to write for these metrics.
-       // instead, just record blanks in the columns where the metrics go.
        for (var i=0; i <  gbl_num_metrics_cols; i++)
          {
            output_row.push("");
          }
      }
   
-  // lastly, follow with the actual questions, their scores, or the original submissions 
-  // (depending on row type)
+  // lastly, follow with the actual questions (non student ids).
+  // for each, write out the score in points, or the original submission (depending on row type)
   for (var i=1; i < this.grading_options.length; i++)
     {
       if (this.grading_options[i] != GRADING_OPT_STUD_ID)
@@ -1263,7 +1390,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
 {
   var metric_start_col = 2 + this.num_student_identifiers;
   var col_num = metric_start_col + METRIC_EMAILED_GRADE;
-  setCellValue(this.grades_sheet, this.row_num, col_num, "Yes");
+  setCellValue(this.grades_sheet, this.row_num, col_num, "x");
 }
 
  // gradeStep1:
@@ -1279,14 +1406,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    //  housekeeping that can't be done in onInstall (unfortuntately)
    //  because it involves setting properties, which isn't allowed there.
    setFlubarooUid(); // used for anonymous analytics
-
-   // take note of the current version this user has installed
-   var cver = UserProperties.getProperty("flubaroo_current_version");
-   if ((cver == null) || (cver != gbl_version_str))
-     {
-       UserProperties.setProperty("flubaroo_current_version", gbl_version_str);
-     }
-
+   
    // Commence grading below this point.
    
    // First, do a sanity check. Make sure that the sheet with the submissions
@@ -1295,7 +1415,8 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    sheet = getSheetWithSubmissions(ss);
    if (sheet == null)
      {
-       Browser.msgBox("Flubaroo Notification", CANNOT_FIND_SUBM_MESSAGE,
+       Browser.msgBox(langstr("FLB_STR_NOTIFICATION"), 
+                      langstr("FLB_STR_CANNOT_FIND_SUBM_MSG") + langstr("FLB_STR_SHEETNAME_STUD_SUBM"),
                       Browser.Buttons.OK);
        return;
      }
@@ -1306,12 +1427,19 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
      
    // Next, make sure there are enough rows in this sheet to do grading. We need
    // one submission, and one answer key, plus the header row (= 3).
-   var num_rows = sheet.getLastRow();
-   if (num_rows < 3)
+   var num_subm = sheet.getLastRow();
+   
+   var help_tips_row = getTipsRow(sheet);
+   if (help_tips_row != null)
      {
-       Browser.msgBox("Flubaroo Notification", "There must be at least "
-                      + "2 submissions to perform grading. Please try again "
-                      + "when more students have submitted their answers.",
+       // don't count the help tips row, if present.
+       num_subm = num_subm - 1;
+     }
+   
+   if (num_subm < 3)
+     {
+       Browser.msgBox(langstr("FLB_STR_NOTIFICATION"), 
+                      langstr("FBL_STR_GRADE_NOT_ENOUGH_SUBMISSIONS"),
                       Browser.Buttons.OK);
        return;
      }
@@ -1320,9 +1448,8 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    // re-grading will overwrite them.
    if (!gbl_skip_ui && getSheetWithGrades(ss) != null)
      {
-       rv = Browser.msgBox("Flubaroo Notification", "This will replace "
-                           + "your existing grades. Are you sure you "
-                           + "want to continue?",
+       rv = Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
+                           langstr("FLB_STR_REPLACE_GRADES_PROMPT"),
                            Browser.Buttons.YES_NO);
        if (rv != "yes")
          {
@@ -1333,8 +1460,8 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
      
    // give the teacher some notice that we're grading their assignment
    var wait_app = createPleaseWaitUI(sheet,
-                                    'Flubaroo - Preparing to Grade',
-                                     WAIT_INSTRUCTIONS1);
+                                     langstr("FLB_STR_PREPARING_TO_GRADE_WINDOW_TITLE"),
+                                     langstr("FLB_STR_WAIT_INSTR1"));
    ss.show(wait_app);   
              
    // for debugging and development
@@ -1358,7 +1485,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
  {
    // Show a UI that presents each question. Must be done in a veritically
    // scrollable window so that all questions can be listed.
-   var app = UiApp.createApplication().setTitle('Flubaroo - Grading Step 1')
+   var app = UiApp.createApplication().setTitle(langstr("FLB_STR_GRADE_STEP1_WINDOW_TITLE"))
                                       .setWidth("500").setHeight("460");
    
    var num_questions = getNumQuestionsFromSubmissions(sheet);
@@ -1366,9 +1493,9 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    
    // Setup the grid, which contains all UI elements.
    var grid = app.createGrid(num_questions,3).setCellSpacing(5);
-   grid.setWidget(0, 0, app.createLabel('Grading Option'));
+   grid.setWidget(0, 0, app.createLabel(langstr("FLB_STR_GRADE_STEP1_LABEL_GRADING_OPTION")));
    grid.setWidget(0, 1, app.createLabel('        '));
-   grid.setWidget(0, 2, app.createLabel('Question'));
+   grid.setWidget(0, 2, app.createLabel(langstr("FLB_STR_GRADE_STEP1_LABEL_QUESTION")));
  
    // Declare the handler that will be called when the 'Cancel' button is
    // clicked. Not that the 'Continue' button is taken care of by doPost.
@@ -1391,13 +1518,13 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
        // starting from 1, where we skip Q1 (Google timestamp).
        lbox_name = "Q" + String(i);
        var lbox = app.createListBox(false).setId(lbox_name).setName(lbox_name);
-       lbox.addItem(GRADING_OPT_1_PT); // default selection
-       lbox.addItem(GRADING_OPT_2_PT);
-       lbox.addItem(GRADING_OPT_3_PT);
-       lbox.addItem(GRADING_OPT_4_PT);
-       lbox.addItem(GRADING_OPT_5_PT);
-       lbox.addItem(GRADING_OPT_STUD_ID);
-       lbox.addItem(GRADING_OPT_SKIP);
+       lbox.addItem(langstr("FLB_STR_GRADING_OPT_1_PT"), GRADING_OPT_1_PT); // default selection
+       lbox.addItem(langstr("FLB_STR_GRADING_OPT_2_PT"), GRADING_OPT_2_PT);
+       lbox.addItem(langstr("FLB_STR_GRADING_OPT_3_PT"), GRADING_OPT_3_PT);
+       lbox.addItem(langstr("FLB_STR_GRADING_OPT_4_PT"), GRADING_OPT_4_PT);
+       lbox.addItem(langstr("FLB_STR_GRADING_OPT_5_PT"), GRADING_OPT_5_PT);
+       lbox.addItem(langstr("FLB_STR_GRADING_OPT_STUD_ID"), GRADING_OPT_STUD_ID);
+       lbox.addItem(langstr("FLB_STR_GRADING_OPT_SKIP_GRADING"), GRADING_OPT_SKIP);
  
        // Place the list box into the grid.
        grid.setWidget(i-1, 0, lbox);
@@ -1428,10 +1555,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
          }
        }
  
-   // Add in the option (not settable) for Q1: the Google timestamp.
-   //ques1_opt = app.createHidden("Q1", "Skip Grading").setId("Q1").setName("Q1");
-     
-   // create the main panel to hold all content in the UI for this step.
+  // create the main panel to hold all content in the UI for this step.
    var main_panel = app.createVerticalPanel()
                        .setStyleAttribute('border-spacing', '10px');
    
@@ -1448,7 +1572,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    var hpanel = app.createHorizontalPanel()
        .setStyleAttribute('border-spacing', '10px')
        .add(app.createImage(FLUBAROO_WELCOME_IMG_URL))
-       .add(app.createLabel(STEP1_INSTRUCTIONS)
+       .add(app.createLabel(langstr("FBL_STR_STEP1_INSTR"))
             .setStyleAttribute('margin-top', '20px'));
    main_panel.add(hpanel);
  
@@ -1466,7 +1590,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
      
    // add the Continue and Cancel buttons at the bottom.
    var btnGrid = app.createGrid(1, 2).setStyleAttribute('float', 'right');
-   var btnSubmit = app.createButton('Continue',handler).setId('CONTINUE')
+   var btnSubmit = app.createButton(langstr("FLB_STR_BUTTON_CONTINUE"),handler).setId('CONTINUE')
                                                        .addClickHandler(click_handler);
    btnGrid.setWidget(0,1,btnSubmit);
    //btnGrid.setWidget(0,2,app.createButton('Cancel',handler).setId('CANCEL'));
@@ -1570,7 +1694,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
        ui_width = "950";
      }
    
-   var app = UiApp.createApplication().setTitle('Flubaroo - Grading Step 2')
+   var app = UiApp.createApplication().setTitle(langstr("FLB_STR_GRADE_STEP2_WINDOW_TITLE"))
                                       .setWidth(ui_width).setHeight("460");
    
    // Declare a click handler that will be called when a radio button is selected
@@ -1604,8 +1728,8 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
  
    // Start with the header row (grid row 0). This row contains a summary of
    // the questions which ID a student (e.g. "First Name", "Student ID", ....)
-   grid.setWidget(0, 0, app.createLabel('Select'));
-   grid.setWidget(0, 1, app.createLabel(gbl_lbl_subm_time));
+   grid.setWidget(0, 0, app.createLabel(langstr("FLB_STR_GRADE_STEP2_LABEL_SELECT")));
+   grid.setWidget(0, 1, app.createLabel(langstr("FLB_STR_GRADE_STEP2_LABEL_SUBMISSION_TIME")));
    
    // Users have had issues with too many Student Identifiers (or rather long ones)
    // screwing up the UI, causing the Continue button to get pushed out of view.
@@ -1633,7 +1757,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    var answer_key_cols = new Array();
    var timestamp_column = sheet.getRange(2, 1, num_rows-1, 1);
    answer_key_cols.push(timestamp_column);
- 
+   
    // get the column associated with each student identifying question.
    var index = 0;
    for (index=0; index < student_id_cols.length; index++)
@@ -1649,11 +1773,24 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    // print out their values for each submission (horizontal step).
    // Here subm_row identifies the spreadsheet row of the submission, skipping
    // the header row (so '1' is the first actual submission).
-   var subm_row = 0;
+   var subm_row = 1;
    var text = "";
    var radio_value = "";
    
-   for (subm_row=1; subm_row <= num_subm; subm_row = subm_row + 1)
+   // check if a row of help tips was provided. if so, don't show it in the UI,
+   // as it can't be used as an answer key.
+   help_tip_timestamp = timestamp_column.getCell(1,1).getValue();
+   
+   if (help_tip_timestamp == "")
+     {
+       // there is a help tip here (row after the header that has an empty timestamp).
+       // skip it.
+       subm_row = 2;
+     }
+   
+   var grid_row = 1;
+   
+   for (; subm_row <= num_subm; subm_row = subm_row + 1)
      {
        // add radio button for this submission. we'll record the actual
        // spreadsheet row containing the answer key (so starting from '2').
@@ -1662,7 +1799,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
                                   .setFormValue(radio_value);
                                   //.setName("answer_key_select")
                                   //.setId("answer_key_select")
-       grid.setWidget(subm_row, 0, radio_button);
+       grid.setWidget(grid_row, 0, radio_button);
        radio_button.addClickHandler(radio_click_handler);
        //handler.addCallbackElement(radio_button);
  
@@ -1670,7 +1807,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
        // space.
        var subm_date = String(answer_key_cols[0].getCell(subm_row, 1).getValue());
        subm_date = subm_date.split(" GMT")[0];
-       grid.setWidget(subm_row, 1, // after radio button
+       grid.setWidget(grid_row, 1, // after radio button
                       app.createLabel(subm_date));
  
        // add to the grid responses to student identifying questions.
@@ -1684,17 +1821,19 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
                subm_text = subm_text.substring(0,trunc_len) + "...";
              }
  
-           grid.setWidget(subm_row, ques_index+1,
+           grid.setWidget(grid_row, ques_index+1,
                           app.createLabel(subm_text));
  
          }
+       
+       grid_row++;
      }
  
    // add a top level hpanel for instructions and picture
    var hpanel = app.createHorizontalPanel()
        .setStyleAttribute('border-spacing', '10px')
        .add(app.createImage(FLUBAROO_WELCOME_IMG_URL))
-       .add(app.createLabel(STEP2_INSTRUCTIONS)
+       .add(app.createLabel(langstr("FBL_STR_STEP2_INSTR"))
                .setStyleAttribute('margin-top', '20px'));
                                
    main_panel.add(hpanel);
@@ -1719,7 +1858,8 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
  
    // add the Continue and Cancel buttons at the bottom.
    var btnGrid = app.createGrid(1, 3).setStyleAttribute('float', 'right');
-   var btnSubmit = app.createSubmitButton('Continue').setId('CONTINUE').setEnabled(false)
+   var btnSubmit = app.createSubmitButton(langstr("FLB_STR_BUTTON_CONTINUE"))
+                                                     .setId('CONTINUE').setEnabled(false)
                                                      .addClickHandler(button_click_handler);
    btnGrid.setWidget(0,0,app.createImage(FLUBAROO_WORKING_IMG_URL).setVisible(false).setId('working'));
    btnGrid.setWidget(0,1,btnSubmit);
@@ -1794,28 +1934,39 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
  
        // give the teacher some notice that we're grading their assignment
        app = createPleaseWaitUI(sheet,
-                                'Flubaroo - Grading Your Assignment',
-                                WAIT_INSTRUCTIONS2);
+                                langstr("FLB_STR_GRADING_WINDOW_TITLE"),
+                                langstr("FLB_STR_WAIT_INSTR2"));
        ss.show(app);
       
        // read in a copy of the grades sheet, if existing. 
        // we need to this so we can retain the values of "Already Emailed" when generating a
-       // new Grades sheet.
-       var already_emailed_info = null;
-       if (getSheetWithGrades(ss) != null)
+       // new Grades sheet, as well as the values in the "Student Feedback" columns.
+       // Note: We don't do this if we've just upgraded though, since possibly the expected
+       // format of Grades may have changed with the new version. The user will instead re-grade
+       // first.
+       var already_emailed_info = null;  
+       var student_feedback_info = null;
+
+       if (getSheetWithGrades(ss) != null && !justUpgradedThisSheet())
          {
-           customLog("collecting info on grades already emailed");
+           customLog("collecting info on grades already emailed, and student feedback");
            var gws_graded = new GradesWorksheet(ss, INIT_TYPE_GRADED_PARTIAL);
+           
            already_emailed_info = gws_graded.getAlreadyEmailedInfo();
+           student_feedback_info = gws_graded.getStudentFeedbackInfo();
          }
        
        var gws = new GradesWorksheet(ss, INIT_TYPE_SUBM);
        
        customLog("writing new grades sheet");
-       gws.writeGradesSheet(already_emailed_info);
-       
+       gws.writeGradesSheet(already_emailed_info, student_feedback_info);
+              
        // Indicate that the grading has completed.
        app.close();
+          
+       // with first grading complete, take note of the current version this user 
+       // has installed in this sheet.
+       setCurrentVersionInfo();
 
        app = createGradingResultsUI();
        ss.show(app);
@@ -1885,8 +2036,8 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
  {
    
    var app = UiApp.createApplication()
-                      .setTitle('Flubaroo - Grading Complete!')
-                      .setWidth("500").setHeight("260");
+                      .setTitle(langstr("FLB_STR_GRADING_COMPLETE_TITLE"))
+                      .setWidth("500").setHeight("300");
   
    var handler = app.createServerClickHandler('gradingResultsEventHandler');
  
@@ -1903,16 +2054,16 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    var hpanel = app.createHorizontalPanel()
        .setStyleAttribute('border-spacing', '10px')
        .add(app.createImage(FLUBAROO_WELCOME_IMG_URL))
-       .add(app.createLabel(RESULTS_MESSAGE1).setStyleAttribute('margin-top', '10px'));
+       .add(app.createLabel(langstr("FLB_STR_RESULTS_MSG1")).setStyleAttribute('margin-top', '10px'));
    var hpanel2 = app.createHorizontalPanel()
-       .add(app.createLabel(RESULTS_MESSAGE2).setStyleAttribute('margin-left', '10px'));
+       .add(app.createLabel(langstr("FLB_STR_RESULTS_MSG2")).setStyleAttribute('margin-left', '10px'));
  
    main_panel.add(hpanel);
    main_panel.add(hpanel2);
  
    // add the button at the bottom.
    var btnGrid = app.createGrid(1, 1).setStyleAttribute('float', 'right');
-   var btnSubmit = app.createButton('View Grades', handler).setId('VIEW GRADES');
+   var btnSubmit = app.createButton(langstr("FLB_STR_GRADE_BUTTON_VIEW_GRADES"), handler).setId('VIEW GRADES');
     
    btnGrid.setWidget(0,0,btnSubmit);
    
