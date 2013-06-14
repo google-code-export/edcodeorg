@@ -606,6 +606,7 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info, stud
    
    // for ease of reading, freeze top rows and student id columns
    this.grades_sheet.setFrozenRows(gbl_grades_start_row_num);
+   SpreadsheetApp.flush();
    this.grades_sheet.setFrozenColumns(1 + this.num_student_identifiers);
          
    // Keep track (anonymously) of number of assignments graded
@@ -1182,11 +1183,17 @@ GradedSubmission.prototype.getQuestionByIndex = function(ques_index)
       
   //customLog("new graded question for index: " + ques_index);
   //customLog("this.graded_vals[" + ques_index + "] = " + this.graded_vals[ques_index]);
+  var help_tips_val = "";
+  if (this.help_tips_present)
+    {
+      help_tips_val = this.help_tips_vals[ques_index];
+    }
+  
   var g_ques = new GradedQuestion(ques_index,
                                   this.question_vals[ques_index],
                                   this.submission_vals[ques_index],
                                   this.grading_options[ques_index],
-                                  this.help_tips_present, this.help_tips_vals[ques_index],
+                                  this.help_tips_present, help_tips_val,
                                   this.answer_key_vals[ques_index],
                                   this.answer_key_vals_lc[ques_index],
                                   this.graded_vals[ques_index],
@@ -1251,7 +1258,7 @@ GradedSubmission.prototype.createRowForGradesSheet = function(output_row_type)
       if (!this.help_tips_present)
         {
           // output entirely blank row
-          data_vals = new Array(this.help_tips_vals.length);
+          data_vals = new Array(this.submission_vals.length);
           for (var i=0; i < data_vals.length; i++)
             {
               // need to create a new array for this, otherwise
