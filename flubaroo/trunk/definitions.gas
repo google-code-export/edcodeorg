@@ -13,7 +13,7 @@ gbl_do_logging = false;
 gbl_skip_ui = false;
 
 // Current version. Shown in "About Flubaroo" dialogue.
-gbl_version_str = "Version 3.0";
+gbl_version_str = "Version 3.01";
 
 // Version update notice. Set this to true when a new version is made
 // available (gbl_version_str is updated). A message will then be popped up during
@@ -109,6 +109,7 @@ SCRIPT_PROP_NUM_GRADED_SUBM = "flubaroo_num_graded_subm";
 SCRIPT_PROP_UI_GRADING_OPT = "flubaroo_ui_grading_opt";
 SCRIPT_PROP_ANSWER_KEY_ROW_NUM = "flubaroo_anskey_row_num";
 SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN = "flubaroo_student_feedback_hidden";
+SCRIPT_PROP_HELP_TIPS_HIDDEN = "flubaroo_help_tips_hidden";
 SCRIPT_PROP_NUM_STUDENT_IDENTIFIERS = "flubaroo_num_student_identifiers";
 SCRIPT_PROP_SHEET_INSTALLED_VERSION = "flubaroo_sheet_installed_version";
 

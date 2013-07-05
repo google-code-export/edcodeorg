@@ -22,9 +22,9 @@ rc = null;
  function onOpen()
  {
    var ss = SpreadsheetApp.getActiveSpreadsheet();
- 
+   
    createFlubarooMenu(ss);
- 
+   
    // Rename "Sheet1" something more friendly to enhance useability.
    var status = renameSubmissionsSheet();
  }
@@ -83,6 +83,19 @@ function justUpgradedFirstTime()
        menuEntries.push({name: langstr("FLB_STR_MENU_REGRADE_ASSIGNMENT"), functionName: "gradeStep1"});
        menuEntries.push({name: langstr("FLB_STR_MENU_EMAIL_GRADES"), functionName: "emailGrades"});
        
+       menuEntries.push({name: langstr("FLB_STR_MENU_VIEW_REPORT"), functionName: "viewReport"});
+             
+       menuEntries.push(null); // line break
+       
+       if (helpTipsHidden())
+         {
+           menuEntries.push({name: langstr("FLB_STR_MENU_EDIT_HELP_TIPS"), functionName: "toggleHelpTips"});
+         }
+       else
+         {
+           menuEntries.push({name: langstr("FLB_STR_MENU_HIDE_HELP_TIPS"), functionName: "toggleHelpTips"});
+         }
+ 
        var col_hidden = ScriptProperties.getProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN);
        if (col_hidden == "true")
          {
@@ -92,8 +105,6 @@ function justUpgradedFirstTime()
          {
            menuEntries.push({name: langstr("FLB_STR_MENU_HIDE_FEEDBACK"), functionName: "toggleFeedback"});
          }
-       
-       menuEntries.push({name: langstr("FLB_STR_MENU_VIEW_REPORT"), functionName: "viewReport"});
      }
    else
      {
@@ -175,8 +186,10 @@ function toggleFeedback()
   
   if (col_hidden == "true")
     {
-
+      ss.setActiveSheet(grades_sheet);
       grades_sheet.showColumns(feedback_col_num);
+      var range = grades_sheet.getRange(gbl_grades_start_row_num +1, feedback_col_num);
+      grades_sheet.setActiveSelection(range);
       ScriptProperties.setProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN, "false");
     }
   else
@@ -187,6 +200,71 @@ function toggleFeedback()
   
   createFlubarooMenu(ss);
 }
+
+
+function helpTipsHidden()
+{
+  var ht_hidden = ScriptProperties.getProperty(SCRIPT_PROP_HELP_TIPS_HIDDEN);
+  if (ht_hidden == null)
+    {
+      // handle first case when not set yet.
+      ht_hidden = "true";
+    }
+  
+  if (ht_hidden == "true")
+    {
+      return true;
+    }
+  else
+    {
+      return false;
+    }
+}
+
+function toggleHelpTips()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var subm_sheet = getSheetWithSubmissions(ss);
+  
+  var num_stud_identifiers = ScriptProperties.getProperty(SCRIPT_PROP_NUM_STUDENT_IDENTIFIERS);
+  
+  var tips_present = false;
+  if (getTipsRow(subm_sheet) != null)
+    {
+      tips_present = true;
+    }
+  
+  if (helpTipsHidden())
+    {
+      // unhide or insert Help Tips row
+      ss.setActiveSheet(subm_sheet);
+      ScriptProperties.setProperty(SCRIPT_PROP_HELP_TIPS_HIDDEN, "false");
+
+      if (tips_present)
+        {
+          subm_sheet.showRows(2);
+        }
+      else
+        {
+          subm_sheet.insertRowAfter(1);
+        }
+      
+      var range = subm_sheet.getRange("B2");
+      subm_sheet.setActiveSelection(range);
+    }
+  else
+    {
+      // hide it, if it exists
+      if (tips_present)
+        {
+          subm_sheet.hideRows(2);
+        }
+      ScriptProperties.setProperty(SCRIPT_PROP_HELP_TIPS_HIDDEN, "true");
+    }
+  
+  createFlubarooMenu(ss);
+}
+
 
 // strTrim:
 // Trims the whitespace before and after the string.
@@ -344,8 +422,6 @@ function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
  }
 
 // getTipsRow:
-// pick up by testing and using this everywhere.
-// next is when testing for at least 2 rows (at start of grading), use this to get crrect count
 function getTipsRow(subm_sheet)
 {
   var help_tips_vals = singleRowToArray(subm_sheet,
@@ -412,6 +488,13 @@ function logGrading(ss_name)
       // probably not the "try it now" sample. so anonymously record that another
       // assignment was graded!
       var ga_url = createGATrackingUrl("Assignment%20Graded");
+      if (ga_url)
+        {
+          var response = UrlFetchApp.fetch(ga_url);
+        }
+            
+      // log grading for this specific version (to track fragmentation of versions)      
+      var ga_url = createGATrackingUrl(encodeURIComponent(gbl_version_str));
       if (ga_url)
         {
           var response = UrlFetchApp.fetch(ga_url);

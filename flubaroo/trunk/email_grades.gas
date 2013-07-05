@@ -271,8 +271,14 @@ function createEmailGradesUI(sheet)
        }
        msg_body += "</body></html>";
         
-       MailApp.sendEmail(user_email_addr, msg_title, "",
-                         {htmlBody: msg_body, noReply: true, name: "Flubaroo Grader"});
+       try
+         {   
+           MailApp.sendEmail(user_email_addr, msg_title, "",
+                            {htmlBody: msg_body, noReply: true, name: "Flubaroo Grader"});
+         }
+       catch (exception)
+         {
+         }
        
        logEmail();
        
@@ -471,7 +477,7 @@ function constructQuestionDiv(graded_ques, grade_status, grade_points_str, show_
   if (graded_ques.getHelpTip() != "")
     {
       div_body += '<br><hr><b>' + langstr("FLB_STR_EMAIL_GRADES_SCORE_TABLE_HELP_TIP_HEADER")  + ':</b>';
-      div_body += '<p style="width:400px;padding-left:25px;font-size:medium;">'
+      div_body += '<p style="width:400px;padding-left:25px;padding-top:8px;font-size:medium;">'
       div_body += '<i>' + graded_ques.getHelpTip() + '</i>';
       div_body += '</p>';
     }
@@ -491,6 +497,12 @@ function quesContainsEmail(ques_txt)
     }
   
   if (ques_txt.indexOf('e-mail') != -1)
+    {
+      return true;
+    }
+  
+  // spanish
+  if (ques_txt.indexOf('correo') != -1)
     {
       return true;
     }

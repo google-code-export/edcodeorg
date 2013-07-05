@@ -18,7 +18,7 @@
 //                         Broke 'flubaroo.gas' into multiple files.
 //   Version 2.1, 11/29/12: Fixes for issues 8 and 9.
 
-/*   Version 3.0, 6/13/13:
+/*   Version 3.0, 6/24/13:
      Many changes in this version. The code has been compltely re-written from scratch
      (an effort which started a year ago) to make it easier to modify and extend by myself
      and others. Also:
@@ -41,3 +41,5 @@
            ** Manuel Fernández **
            ** Gatech López **
 */                
+
+//   Version 3.01, 6/26/13: Quick fix for answer key issue reported (issue 37).

@@ -118,12 +118,19 @@
    html_body += '</body></html>';
    
    //email_address = Session.getActiveUser().getEmail();
-   MailApp.sendEmail(email_address, msg_title, "",
-                             {htmlBody: html_body, noReply: true, name: "Assignment Grader"});
-   
-   Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
+   try
+     {
+       MailApp.sendEmail(email_address, msg_title, "",
+                                 {htmlBody: html_body, noReply: true, name: "Assignment Grader"});
+          
+       Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
                   langstr("FLB_STR_VIEW_REPORT_EMAIL_NOTIFICATION") + ': ' + email_address,
                   Browser.Buttons.OK);
+     }
+   catch(exception)
+     {
+     }
+   
    return;
  }
  

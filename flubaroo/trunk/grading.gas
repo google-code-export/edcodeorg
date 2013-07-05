@@ -217,6 +217,13 @@ GradesWorksheet.prototype.processStudentSubmissionsSheet = function()
   
    // collect the answers from the Answer Key row. make all lowercase so we're
    // case insentive when comparing to text submissions.
+  
+   // Flubaroo 3.01 fix. don't necc need to check type, but being careful.
+   if (typeof this.answer_key_row_num == 'string')
+     {
+       this.answer_key_row_num = parseInt(this.answer_key_row_num);
+     }
+  
    var answer_key_vals = singleRowToArray(this.submissions_sheet,
                                           this.answer_key_row_num,
                                           getNumQuestionsFromSubmissions(this.submissions_sheet));
@@ -607,8 +614,8 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info, stud
    // for ease of reading, freeze top rows and student id columns
    this.grades_sheet.setFrozenRows(gbl_grades_start_row_num);
    SpreadsheetApp.flush();
-   this.grades_sheet.setFrozenColumns(1 + this.num_student_identifiers);
-         
+   this.grades_sheet.setFrozenColumns(1 + this.num_student_identifiers);        
+
    // Keep track (anonymously) of number of assignments graded
    // using Flubaroo. Try to not count the "try it now" sample
    // in this total, though.
@@ -2289,6 +2296,13 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
      {
        return true;
      }
+   
+   // spanish
+   else if (ques.indexOf('correo') != -1)
+     {
+       return true;
+     }
+   
    return false;
  }
 
