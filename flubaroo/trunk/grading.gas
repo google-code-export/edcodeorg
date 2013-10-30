@@ -533,9 +533,14 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info, stud
    this.grades_sheet.hideColumns(feedback_col_num);
    ScriptProperties.setProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN, "true"); 
    
+   var subm_copy_row_index_col_num =  metric_start_col + METRIC_SUBM_COPY_ROW_INDEX;
+   this.grades_sheet.hideColumns(subm_copy_row_index_col_num);
+   
    // set active cell to be upper-left cell Grades sheet.
    var ar = this.grades_sheet.getRange(1, 1, 1, 1);
    this.grades_sheet.setActiveRange(ar);
+   
+   var gs_count = 0;
    
    for (var graded_subm = this.getFirstGradedSubmission(); graded_subm != null; 
             graded_subm = this.getNextGradedSubmission())
@@ -564,6 +569,11 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info, stud
               graded_subm.setStudentFeedback(student_feedback_info[fingerprint]);
             }
         }
+      
+      // record the offset into the hidden row section where a copy of the original submission
+      // is kept. it's used for emailing grades.
+      // note: we store the location of the row rather than infer it incase the user sorts the Grades.
+      graded_subm.setSubmCopyRowIndex(gs_count++);
       
       // write out the grades for each question in this submission
       this.writeGradedSubmission(graded_subm);
@@ -731,7 +741,7 @@ GradesWorksheet.prototype.writePercentages = function()
      }
 }
 
-GradesWorksheet.prototype.getHiddenRow = function(hidden_row_id, opt_graded_subm_row_num)
+GradesWorksheet.prototype.getHiddenRow = function(hidden_row_id, opt_graded_subm_row_index)
 {
   var write_start_row = gbl_grades_start_row_num + 1; // first row into which grades were written
  
@@ -740,9 +750,10 @@ GradesWorksheet.prototype.getHiddenRow = function(hidden_row_id, opt_graded_subm
   var hidden_row_num_start = percent_correct_row + gbl_num_space_before_hidden; // several rows down, to help further hide it
   
   var n = 0;
-  if (opt_graded_subm_row_num != "")
+  if (opt_graded_subm_row_index != "")
     {
-      n = opt_graded_subm_row_num - write_start_row;
+      //n = opt_graded_subm_row_num - write_start_row;
+      n += opt_graded_subm_row_index; // really an offset past the first hidden row
     }
   
   var hidden_row = singleRowToArray(this.grades_sheet, hidden_row_num_start + hidden_row_id + n, -1);
@@ -915,6 +926,7 @@ function GradedSubmission(gws,
   this.already_emailed = "";
   this.student_feedback = "";
   this.q_index = 0;
+  this.subm_copy_row_index = 0;
 
   this.initGSVars();
 }
@@ -950,12 +962,14 @@ GradedSubmission.prototype.initGSVars = function()
       this.already_emailed = this.graded_vals[vindex - 1];
       vindex = metric_start_col + METRIC_STUDENT_FEEDBACK;
       this.student_feedback = this.graded_vals[vindex - 1];
+      vindex = metric_start_col + METRIC_SUBM_COPY_ROW_INDEX;
+      this.subm_copy_row_index = this.graded_vals[vindex - 1];
       
       if (this.init_type == INIT_TYPE_GRADED_FULL)
         {
           // read in hidden row of orig submissions. store in this.submission_vals
           this.submission_vals = this.gws.getHiddenRow(GRADES_HIDDEN_ROW_TYPE_SUBMISSION_VALS,
-                                                       this.row_num);
+                                                       this.subm_copy_row_index);
         }
       else
         {
@@ -1089,6 +1103,16 @@ GradedSubmission.prototype.getAlreadyEmailed = function()
 GradedSubmission.prototype.setAlreadyEmailed = function(status)
 {
   this.already_emailed = status;
+}
+
+GradedSubmission.prototype.getSubmCopyRowIndex = function()
+{
+  return this.subm_copy_row_index;
+}
+
+GradedSubmission.prototype.setSubmCopyRowIndex = function(ri)
+{
+  this.subm_copy_row_index = ri;
 }
 
 GradedSubmission.prototype.getStudentFeedback = function()
@@ -1315,8 +1339,11 @@ GradedSubmission.prototype.createRowForGradesSheet = function(output_row_type)
        // next whether or not we've email a grade for this student
        output_row.push(this.already_emailed);
        
-       // last push any feedback to send the student
+       // next push any feedback to send the student
        output_row.push(this.student_feedback);
+       
+       // last push the row number of the (hidden) copy of the original submission.
+       output_row.push(this.subm_copy_row_index);
      }
   
    // if the header row, include the names of the metrics
@@ -1328,6 +1355,7 @@ GradedSubmission.prototype.createRowForGradesSheet = function(output_row_type)
        output_row.push(langstr("FLB_STR_GRADES_SHEET_COLUMN_NAME_TIMES_SUBMITTED"));
        output_row.push(langstr("FLB_STR_GRADES_SHEET_COLUMN_NAME_EMAILED_GRADE"));
        output_row.push(langstr("FLB_STR_GRADES_SHEET_COLUMN_NAME_STUDENT_FEEDBACK"));
+       output_row.push("FOR FLUBAROO - DO NOT EDIT"); // subm copy row number
      }
   
    // not a header row or graded values row, so no values to write for these metrics.
@@ -1984,7 +2012,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
 
        app = createGradingResultsUI();
        ss.show(app);
-      
+
        return app;
      }
    else // CANCEL

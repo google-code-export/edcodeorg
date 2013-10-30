@@ -70,10 +70,15 @@ function createEmailGradesUI(sheet)
    for (var q = graded_subm.getFirstQuestion(); q != null; q = graded_subm.getNextQuestion(q))
      {
        var gopt = q.getGradingOption();
-       var ques_val = q.getFullQuestionText(); // to do: abbreviate
-  
+       var ques_val = q.getFullQuestionText();
+     
        if (gopt == GRADING_OPT_STUD_ID)
          {
+           if (ques_val.length > 40)
+             {
+               ques_val = ques_val.substring(0, 35) + "..."; 
+             } 
+           
            lbox.addItem(ques_val, String(qi));
            position++;
 
@@ -194,6 +199,7 @@ function createEmailGradesUI(sheet)
    // remove any HTML formatting from the instructor's message
    instructor_message = instructor_message.replace("<", "&lt;");
    instructor_message = instructor_message.replace(">", "&gt;");
+   instructor_message = instructor_message.replace("\n", "<br>");
    
    var msg_title = langstr("FLB_STR_EMAIL_GRADES_EMAIL_SUBJECT") + ' "' + assignment_name + '"';
    var msg_body = "";
@@ -266,8 +272,8 @@ function createEmailGradesUI(sheet)
        if (instructor_message != "")
        {
          msg_body += "<p>" + langstr("FLB_STR_EMAIL_RECORD_INSTRUCTOR_MESSAGE") + ":<br><br>";
-         msg_body += '<div style="padding-left:10px;width:60%;border:1px solid gray;">'; 
-         msg_body += "<pre>" + instructor_message + "</pre></p></div>";
+         msg_body += '<div style="padding-left:10px;padding-right:10px;padding-top:10px;padding-bottom:10px;width:60%;border:1px solid gray;">'; 
+         msg_body += instructor_message + "</p></div>";
        }
        msg_body += "</body></html>";
         
@@ -344,17 +350,22 @@ function constructGradesEmailBody(assignment_name,
      {
        msg_body += '<br><br>';
        msg_body += langstr("FLB_STR_EMAIL_GRADES_INSTRUCTOR_MSG_BELOW") + ':<br><br>';
-       msg_body += '<div style="padding-left:10px;width:60%;border:1px solid gray;">';
-       msg_body +=  "<pre>" + instructor_message + "</pre>";
+       msg_body += '<div style="padding-left:10px;padding-right:10px;padding-top:10px;padding-bottom:10px;width:60%;border:1px solid gray;">';
+       msg_body +=  instructor_message;
        msg_body += "</div>";
      }
   
   if (graded_subm.getStudentFeedback() != "")
     {
+       var student_feedback = graded_subm.getStudentFeedback();
+       student_feedback = student_feedback.replace("<", "&lt;");
+       student_feedback = student_feedback.replace(">", "&gt;");
+       student_feedback = student_feedback.replace("\n", "<br>");
+      
        msg_body += '<br><br>';
        msg_body += langstr("FLB_STR_EMAIL_GRADES_STUDENT_FEEDBACK_BELOW") + ':<br><br>';
-       msg_body += '<div style="padding-left:10px;width:60%;border:1px solid gray;">';
-       msg_body +=  "<pre>" + graded_subm.getStudentFeedback() + "</pre>";
+       msg_body += '<div style="padding-left:10px;padding-right:10px;padding-top:10px;padding-bottom:10px;width:60%;border:1px solid gray;">';
+       msg_body +=  student_feedback;
        msg_body += "</div>";
     }
   

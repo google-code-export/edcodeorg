@@ -13,12 +13,12 @@ gbl_do_logging = false;
 gbl_skip_ui = false;
 
 // Current version. Shown in "About Flubaroo" dialogue.
-gbl_version_str = "Version 3.01";
+gbl_version_str = "Version 3.02";
 
 // Version update notice. Set this to true when a new version is made
 // available (gbl_version_str is updated). A message will then be popped up during
 // first install of the updated script (see FLB_STR_NEW_VERSION_NOTICE)
-gbl_show_version_update_notice = true;
+gbl_show_version_update_notice = false;
 
 // Global variables for naming things
 gbl_menu_name = 'Flubaroo';
@@ -31,8 +31,10 @@ gbl_grades_sheet_name = 'Grades';
 
 // Global variables that relate to row and column numbers or lengths.
 gbl_grades_start_row_num = 7;
-gbl_num_metrics_cols = 5; // score, percent, 
-                          // number of submissions, already emailed, student feedback
+gbl_num_metrics_cols = 6; // score, percent, 
+                          // number of submissions, 
+                          // already emailed, student feedback,
+                          // subm copy row index
 
 // ID's of the metrics columns, starting from 0. These are written out in 
 // 'Grades' after the student identifiers.
@@ -41,6 +43,8 @@ METRIC_PERCENT = 1;
 METRIC_TIMES_SUBMITTED = 2;
 METRIC_EMAILED_GRADE = 3;
 METRIC_STUDENT_FEEDBACK = 4; // not really a "metric", but hijack this logic.
+METRIC_SUBM_COPY_ROW_INDEX = 5; // hidden column. points to row in Grades sheet
+
 
 // Constants for hidden rows, including order of hidden rows
 gbl_num_summary_rows = 4;  // number of rows at the top of 'Grades' that contain summary data.
