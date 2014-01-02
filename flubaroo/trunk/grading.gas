@@ -1001,6 +1001,8 @@ GradedSubmission.prototype.initGSVars = function()
 
 // gradeIt: Performs the grading of each question in one student's 
 // submission. Returns nothing, but sets some private variables.
+// This function is called by the GradedSubmission constructor
+// for GradedSubmissions created during initial grading.
 GradedSubmission.prototype.gradeIt = function()
 {   
   // Private variables updated in this function.
@@ -1015,50 +1017,45 @@ GradedSubmission.prototype.gradeIt = function()
       var grade_val = 0; // Default to 0 points.
        
       switch(q.getGradingOption())
-      {
-      
-      case GRADING_OPT_SKIP:
+        {
+          case GRADING_OPT_SKIP:
  
-          // The teacher wants to skip grading on this question.
+            // The teacher wants to skip grading on this question.
          
-          if (q.isTimestamp())
-            {
-              // Echo the value back in the grades if it is 
-              // a timestamp.
-              grade_val = q.getFullSubmissionText();
-            }
-          else
-            {
-              // Flag this question as 'not graded'.
-              grade_val = langstr("FLB_STR_NOT_GRADED");
-            }
+            if (q.isTimestamp())
+              {
+                // Echo the value back in the grades if it is 
+                // a timestamp.
+                grade_val = q.getFullSubmissionText();
+              }
+            else
+              {
+                // Flag this question as 'not graded'.
+                grade_val = langstr("FLB_STR_NOT_GRADED");
+              }
       
-          break;
+            break;
     
-      case GRADING_OPT_STUD_ID:
+        case GRADING_OPT_STUD_ID:
           
-          // This answer identifies the student so just echo it back.
-          grade_val = q.getFullSubmissionText();
-          break;
+            // This answer identifies the student so just echo it back.
+            grade_val = q.getFullSubmissionText();
+            break;
           
-      case GRADING_OPT_1_PT:
-      case GRADING_OPT_2_PT:
-      case GRADING_OPT_3_PT:
-      case GRADING_OPT_4_PT:
-      case GRADING_OPT_5_PT:
+        case GRADING_OPT_1_PT:
+        case GRADING_OPT_2_PT:
+        case GRADING_OPT_3_PT:
+        case GRADING_OPT_4_PT:
+        case GRADING_OPT_5_PT:
+        default:
           
-          // Question that is worth points. Grade it!
-          grade_val = this.gradeSubmission(q);
+           // Question that is worth points. Grade it!
+           grade_val = this.gradeSubmission(q);
           
-          // Keep track of this students score.
-          this.score_points += grade_val; 
+            // Keep track of this students score.
+            this.score_points += grade_val; 
           
-          break;   
-      
-      default:
-      
-          throw new Error('GradedSubmission.gradeIt() Unexpected grading option.');
-          break;
+            break;   
       }
       
       q.setGradedVal(grade_val);
