@@ -125,3 +125,6 @@ USER_PROP_GRADE_LIFETIME_COUNT = "flubaroo_grade_lifetime_count";
 USER_PROP_LANGUAGE_ID = "flubaroo_language_id"; // only set if "Set Language" menu used.
 USER_PROP_LATEST_VERSION_INSTALLED = "flubaroo_latest_version_installed";
 
+// special answer key operators
+ANSKEY_OPERATOR_OR = " %or ";
+ANSKEY_OPERATOR_NUMERIC_RANGE = " %to ";

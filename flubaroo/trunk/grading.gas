@@ -1090,7 +1090,7 @@ GradedSubmission.prototype.gradeSubmission = function(q)
   // Process the answer key.
   if (typeof key === 'string')
     {
-      if (key.search(' %to ') != -1)
+      if (key.search(ANSKEY_OPERATOR_NUMERIC_RANGE) != -1)
         {
           // Found '%to' operator.
           key_list = this.processToInKey(key);
@@ -1102,7 +1102,7 @@ GradedSubmission.prototype.gradeSubmission = function(q)
               found_to = true;
             }
         }
-      else if (key.search(' %or ') != -1)
+      else if (key.search(ANSKEY_OPERATOR_OR) != -1)
         {          
           // Found '%or' operator.
           key_list = this.processOrInKey(key);
@@ -1162,7 +1162,7 @@ GradedSubmission.prototype.gradeSubmission = function(q)
 GradedSubmission.prototype.processToInKey = function(key) 
 {
   // Seperate the values defined in the range.
-  var parsed_key_list = key.split(" %to ");
+  var parsed_key_list = key.split(ANSKEY_OPERATOR_NUMERIC_RANGE);
   var rv_key_list;
   
   switch (parsed_key_list.length)
@@ -1204,7 +1204,7 @@ GradedSubmission.prototype.processToInKey = function(key)
 // the %or operator. Returns an array of values.
 GradedSubmission.prototype.processOrInKey = function(key)
 { 
-  var parsed_key_list = key.split(" %or ");
+  var parsed_key_list = key.split(ANSKEY_OPERATOR_NUMERIC_RANGE);
   var rv_key_list = parsed_key_list;
 
   if (parsed_key_list.length < 2)
