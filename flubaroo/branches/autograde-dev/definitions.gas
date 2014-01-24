@@ -13,7 +13,7 @@ gbl_do_logging = false;
 gbl_skip_ui = false;
 
 // Current version. Shown in "About Flubaroo" dialogue.
-gbl_version_str = "Version 3.02";
+gbl_version_str = "Test Version for AutoGrade Dev";
 
 // Version update notice. Set this to true when a new version is made
 // available (gbl_version_str is updated). A message will then be popped up during
@@ -116,6 +116,16 @@ SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN = "flubaroo_student_feedback_hidden";
 SCRIPT_PROP_HELP_TIPS_HIDDEN = "flubaroo_help_tips_hidden";
 SCRIPT_PROP_NUM_STUDENT_IDENTIFIERS = "flubaroo_num_student_identifiers";
 SCRIPT_PROP_SHEET_INSTALLED_VERSION = "flubaroo_sheet_installed_version";
+SCRIPT_PROP_EMAIL_ADDRESS_QUESTION = "flubaroo_email_address_question";
+SCRIPT_PROP_EMAIL_INCLUDE_QUESTIONS_SCORES = "flubaroo_email_include_quesions_scores";
+SCRIPT_PROP_EMAIL_INCLUDE_ANSWER_KEY = "flubaroo_email_include_answer_key";
+SCRIPT_PROP_EMAIL_INSTRUCTOR_MESSAGE = "flubaroo_email_instructor_message";
+SCRIPT_PROP_EMAIL_INSTRUCTOR_ADDRESS = "flubaroo_email_instructor_address";
+SCRIPT_AUTO_GRADE_SUBMISSIONS_PENDING = "flubaroo_auto_grade_subm_pending";
+SCRIPT_AUTO_GRADE_SUBMIT_TRIGGER_ID = "flubaroo_auto_grade_submit_trigger_id";
+SCRIPT_AUTO_GRADE_TIMED_TRIGGER_ID = "flubaroo_auto_grade_timed_trigger_id";
+SCRIPT_AUTO_GRADE_ENABLED = "flubaroo_auto_grade_enabled";
+SCRIPT_AUTO_GRADE_GATHERING_OPTIONS = "flubaroo_auto_grade_gathering_options";
 
 USER_PROP_GRADE_MONTH = "flubaroo_grade_month";  // month that count corresponds to
 USER_PROP_GRADE_MONTH_COUNT = "flubaroo_grade_month_count"; // # of times grading has occured (on any assignment) during this month

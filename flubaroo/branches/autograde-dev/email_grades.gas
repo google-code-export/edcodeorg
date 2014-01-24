@@ -2,11 +2,28 @@
 // Description: 
 // This file contains all relevant functions for emailing students their grades.
 
+function menuEmailGrades()
+{
+  // Housecleaning. Set this to false anytime a user explicitly chooses to grade
+  // the assignment. It could be left as 'true' if a user quit prematurely while
+  // setting auto-grade options, which could in turn mess up the UI flow for 
+  // normal grading.
+  ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_GATHERING_OPTIONS, "false");
+  
+  return emailGrades();
+}
+
 // emailGradesSetup: Displays the UI for the user to select emailing options.
 function emailGrades()
  {
    var ss = SpreadsheetApp.getActiveSpreadsheet();
   
+   if (gbl_skip_ui)
+     {
+       sendEmails();
+       return;
+     }
+   
    var grades_sheet = getSheetWithGrades(ss);  
    if (grades_sheet == null)
      {
@@ -29,7 +46,15 @@ function createEmailGradesUI(sheet)
    var app = UiApp.createApplication().setTitle(langstr("FLB_STR_EMAIL_GRADES_WINDOW_TITLE"))
                                       .setWidth("400").setHeight("520");
  
-   var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_META);
+   if (checkAutoGradeGatheringOptions())
+     {
+       // Grades sheet may not exist yet. We'll get the questions from the Student Submissions sheet instead.
+       var gws = new GradesWorksheet(ss, INIT_TYPE_SUBM);
+     }
+   else
+     {
+       var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_META);
+     }
 
    // Declare the handler that will be called when the 'Continue' or 'Cancel'
    // buttons are clicked.
@@ -79,7 +104,8 @@ function createEmailGradesUI(sheet)
                ques_val = ques_val.substring(0, 35) + "..."; 
              } 
            
-           lbox.addItem(ques_val, String(qi));
+           //lbox.addItem(ques_val, String(qi));
+           lbox.addItem(ques_val, q.getFullQuestionText());
            position++;
 
            if (quesContainsEmail(ques_val))
@@ -87,7 +113,7 @@ function createEmailGradesUI(sheet)
                lbox.setSelectedIndex(position); 
              }
          }
-       qi++;
+       //qi++;
      }
         
    var hpanel2 = app.createHorizontalPanel()
@@ -183,19 +209,49 @@ function createEmailGradesUI(sheet)
        return app;
      }
    
-   var ss = SpreadsheetApp.getActiveSpreadsheet();
-   
-   var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_FULL);
- 
-   var email_ques_index = e.parameter.email_ques_index;
+   // grab the user's selections
+   var email_ques = e.parameter.email_ques_index;
    var show_answers = e.parameter.show_answers;
    var instructor_message = e.parameter.instructor_message;
-   var show_questions = e.parameter.show_questions;
-   
+   var show_questions = e.parameter.show_questions   
    var user_email_addr = e.parameter.email_addr;
    
+   // store these as script properties, for use in sendEmails()
+   ScriptProperties.setProperty(SCRIPT_PROP_EMAIL_ADDRESS_QUESTION, email_ques);
+   ScriptProperties.setProperty(SCRIPT_PROP_EMAIL_INCLUDE_QUESTIONS_SCORES, show_questions);
+   ScriptProperties.setProperty(SCRIPT_PROP_EMAIL_INCLUDE_ANSWER_KEY, show_answers);
+   ScriptProperties.setProperty(SCRIPT_PROP_EMAIL_INSTRUCTOR_MESSAGE, instructor_message);
+   ScriptProperties.setProperty(SCRIPT_PROP_EMAIL_INSTRUCTOR_ADDRESS, user_email_addr);
+ 
+   // if we're just gathering or updating options for auto grade, then don't actually send any emails.
+   if (checkAutoGradeGatheringOptions())
+     {
+       ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_GATHERING_OPTIONS, "false");
+       autoGradeOnFinalize();
+       
+       app.close();
+       return app;
+     }
+   
+   sendEmails();
+ }
+
+function sendEmails()
+{
+   var app = UiApp.getActiveApplication();
+
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+ 
    var assignment_name = ss.getName();
  
+   var email_ques = ScriptProperties.getProperty(SCRIPT_PROP_EMAIL_ADDRESS_QUESTION);
+   var show_answers = ScriptProperties.getProperty(SCRIPT_PROP_EMAIL_INCLUDE_ANSWER_KEY);
+   var instructor_message = ScriptProperties.getProperty(SCRIPT_PROP_EMAIL_INSTRUCTOR_MESSAGE);
+   var show_questions = ScriptProperties.getProperty(SCRIPT_PROP_EMAIL_INCLUDE_QUESTIONS_SCORES);
+   var user_email_addr = ScriptProperties.getProperty(SCRIPT_PROP_EMAIL_INSTRUCTOR_ADDRESS);
+  
+   var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_FULL);
+      
    // remove any HTML formatting from the instructor's message
    instructor_message = instructor_message.replace("<", "&lt;");
    instructor_message = instructor_message.replace(">", "&gt;");
@@ -206,6 +262,23 @@ function createEmailGradesUI(sheet)
                    
    var num_emails_sent = 0;
    var num_emails_unsent = 0;
+   var email_ques_index = 0;
+  
+   // find out which question (by index) contains the email address
+   var first_graded_subm = gws.getFirstGradedSubmission();
+   for (var q = first_graded_subm.getFirstQuestion(); q != null; q = first_graded_subm.getNextQuestion(q))
+     { 
+       // guaranteed to find it.
+       if ((q.getGradingOption() == GRADING_OPT_STUD_ID) && (q.getFullQuestionText() == email_ques))
+         {
+           // we have to iterate to find it, as this list could be initiated from either the
+           // Student Submissions or Grades sheet, which may have different orders for the questions.
+           break;
+         }
+       
+       email_ques_index++;
+     }
+  customLog("found email address at: " + email_ques_index + ", with value: " + email_ques);
    
    customLog("sending emails");
    for (var graded_subm = gws.getFirstGradedSubmission(); graded_subm != null; 
@@ -293,14 +366,21 @@ function createEmailGradesUI(sheet)
          { 
            email_notification += num_emails_unsent + " " + langstr("FLB_STR_VIEW_EMAIL_GRADES_NUMBER_UNSENT"); 
          } 
-       Browser.msgBox(langstr("FLB_STR_NOTIFICATION"), email_notification, 
-                      Browser.Buttons.OK);   
+       
+       if (!gbl_skip_ui)
+         {
+           Browser.msgBox(langstr("FLB_STR_NOTIFICATION"), email_notification, 
+                          Browser.Buttons.OK);
+         }
      }
    else
      {
-       Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
-                      langstr("FLB_STR_VIEW_EMAIL_GRADES_NO_EMAILS_SENT"),
-                      Browser.Buttons.OK);
+       if (!gbl_skip_ui)
+         {
+           Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
+                          langstr("FLB_STR_VIEW_EMAIL_GRADES_NO_EMAILS_SENT"),
+                          Browser.Buttons.OK);
+         }
      }
    
    return app;

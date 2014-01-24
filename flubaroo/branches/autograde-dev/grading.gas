@@ -25,8 +25,6 @@ function GradesWorksheet(spreadsheet, init_type)
   
   if (init_type == INIT_TYPE_SUBM)
     {
-      this.prepNewGradesSheet();
-      
       this.processStudentSubmissionsSheet();
     }
   else // INIT_TYPE_GRADED_*
@@ -428,13 +426,13 @@ GradesWorksheet.prototype.processGradingOptions = function()
 GradesWorksheet.prototype.prepNewGradesSheet = function()
 {
   // start by creating the 'Grades' sheet. if it already exists, then
-  // delete it (teacher was already warned before Step 1).
+  // delete it (teacher was already warned before in Step 1).
   if (this.grades_sheet)
     {
       // present, so delete it.
       this.spreadsheet.setActiveSheet(this.grades_sheet);
       this.spreadsheet.deleteActiveSheet();
-  
+        
       // to avoid a bug in which 'Grades' get deleted, but appears to
       // stick around, switch to another sheet after deleting it.
       // note: bug still exists sometimes.
@@ -458,6 +456,12 @@ GradesWorksheet.prototype.prepNewGradesSheet = function()
     {
       this.grades_sheet.insertRows(1, num_blank_rows_needed - 100);
     }
+  
+   // write a simple message to the top-left cell, so users know
+   // grades are being calculated. this is mostly for auto grade,
+   // since a UI can't be shown there.
+   single_cell = this.grades_sheet.getRange(1, 1, 1, 1);
+   single_cell.setValue(langstr("FLB_STR_GRADING_CELL_MESSAGE")).setFontWeight("bold");
 }
 
 // writeGradesSheet:
@@ -1391,7 +1395,6 @@ GradedSubmission.prototype.createRowForGradesSheet = function(output_row_type)
 
 GradedSubmission.prototype.getSubmFingerprint = function()
 {
-
   if (this.fingerprint != null)
     {
       return this.fingerprint;
@@ -1435,6 +1438,17 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
   setCellValue(this.grades_sheet, this.row_num, col_num, "x");
 }
 
+function menuGradeStep1()
+{
+  // Housecleaning. Set this to false anytime a user explicitly chooses to grade
+  // the assignment. It could be left as 'true' if a user quit prematurely while
+  // setting auto-grade options, which could in turn mess up the UI flow for 
+  // normal grading.
+  ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_GATHERING_OPTIONS, "false");
+ 
+  return gradeStep1();
+}
+
  // gradeStep1:
  // Does the first step of grading the submissions.
  // Creates the 'Grades' sheet, and allows the user to select options for
@@ -1443,7 +1457,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
  {   
    customLogClear();
    customLog("entering gradeStep1");
-   
+     
    //  Before doing anything related to grading, take care of some 
    //  housekeeping that can't be done in onInstall (unfortuntately)
    //  because it involves setting properties, which isn't allowed there.
@@ -1501,23 +1515,30 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
      }
      
    // give the teacher some notice that we're grading their assignment
-   var wait_app = createPleaseWaitUI(sheet,
-                                     langstr("FLB_STR_PREPARING_TO_GRADE_WINDOW_TITLE"),
-                                     langstr("FLB_STR_WAIT_INSTR1"));
-   ss.show(wait_app);   
+   // (but only do this if we're not skipping the UI, or auto-grading).
+   var gathering_grading_options = ScriptProperties.getProperty(SCRIPT_AUTO_GRADE_GATHERING_OPTIONS);
+   if (!gbl_skip_ui && (gathering_grading_options != "true"))
+     {
+       var wait_app = createPleaseWaitUI(sheet,
+                                       langstr("FLB_STR_PREPARING_TO_GRADE_WINDOW_TITLE"),
+                                       langstr("FLB_STR_WAIT_INSTR1"));
+       ss.show(wait_app);
+     }
              
-   // for debugging and development
+   // for debugging and development, as well as auto grading,
+   // move on directly to Step 2, without showing the Step 1 window.
    if (gbl_skip_ui && (ScriptProperties.getProperty(SCRIPT_PROP_UI_GRADING_OPT) != null)
                && (ScriptProperties.getProperty(SCRIPT_PROP_ANSWER_KEY_ROW_NUM) != null))
      {
-       wait_app.close();
        app = step2EventHandler(null);
        return app;
      }
    
    // Create and display the Step 1 UI window.
    app = createStep1UI(sheet);
+   
    wait_app.close();
+   
    ss.show(app);
  
    return app;
@@ -1941,7 +1962,7 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
    
    if (e_step2 == null)
      {
-       // skipping Step 1 and Step 2 of UI for debugging and development
+       // skipping Step 1 and Step 2 of UI for debugging and development, or auto grading.
        if (gbl_skip_ui && (ScriptProperties.getProperty(SCRIPT_PROP_UI_GRADING_OPT) != null)
                && (ScriptProperties.getProperty(SCRIPT_PROP_ANSWER_KEY_ROW_NUM) != null))
          {  
@@ -1966,6 +1987,18 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
        var num_questions = getNumQuestionsFromSubmissions(sheet);
      }
    
+   // We might be here to collect grading options for Auto Grade. If so, we need to
+   // move on to collecting email options. Not typical.
+   if (checkAutoGradeGatheringOptions())
+     {
+       var app = UiApp.getActiveApplication();
+       app.close();
+       
+       var app2 = createEmailGradesUI(ss);
+       ss.show(app2);
+       return app2;
+     }
+   
    var app = UiApp.getActiveApplication();
    
    // If continuing, setup and display next UI window.
@@ -1974,11 +2007,14 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
        // Close current window.
        app.close();
  
-       // give the teacher some notice that we're grading their assignment
-       app = createPleaseWaitUI(sheet,
-                                langstr("FLB_STR_GRADING_WINDOW_TITLE"),
-                                langstr("FLB_STR_WAIT_INSTR2"));
-       ss.show(app);
+       if (!gbl_skip_ui)
+         {
+           // give the teacher some notice that we're grading their assignment
+           app = createPleaseWaitUI(sheet,
+                                    langstr("FLB_STR_GRADING_WINDOW_TITLE"),
+                                    langstr("FLB_STR_WAIT_INSTR2"));
+           ss.show(app);
+         }
       
        // read in a copy of the grades sheet, if existing. 
        // we need to this so we can retain the values of "Already Emailed" when generating a
@@ -2001,17 +2037,21 @@ GradedSubmission.prototype.recordEmailSentInGradesSheet = function()
        var gws = new GradesWorksheet(ss, INIT_TYPE_SUBM);
        
        customLog("writing new grades sheet");
+       gws.prepNewGradesSheet();
        gws.writeGradesSheet(already_emailed_info, student_feedback_info);
               
-       // Indicate that the grading has completed.
-       app.close();
-          
        // with first grading complete, take note of the current version this user 
-       // has installed in this sheet.
+       // has installed in this sheet. can't do this in onOpen or onInstall.
        setCurrentVersionInfo();
 
-       app = createGradingResultsUI();
-       ss.show(app);
+       if (!gbl_skip_ui)
+         {
+           // Indicate that the grading has completed.
+           app.close();      
+
+           app = createGradingResultsUI();
+           ss.show(app);
+         }
 
        return app;
      }
@@ -2426,3 +2466,233 @@ function isStudentIdentifier(grade_opt)
   return false;
 }
 
+function toggleAutoGrade()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var ag_enabled = ScriptProperties.getProperty(SCRIPT_AUTO_GRADE_ENABLED);
+  if (ag_enabled == null || ag_enabled == "false")
+    {
+      // in order to perform auto-grading, all grading and email options
+      // need to have been setup.
+      var gather_app = getAutoGradingOptions();
+      if (gather_app != null)
+        {
+          // we need to gather initial or updated grading options.
+          return gather_app;
+        }
+      
+      // if we're here, it's b/c grading options have already been gathered.
+      autoGradeOnFinalize();
+    }
+  
+  else // auto grading is enabled
+    {
+      // disable it
+      ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_ENABLED, "false");
+      
+      // delete form submit trigger
+      var trigger_id = ScriptProperties.getProperty(SCRIPT_AUTO_GRADE_SUBMIT_TRIGGER_ID);
+      if ((trigger_id != null) && (trigger_id != ""))
+        {
+          deleteTrigger(trigger_id);
+          ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_SUBMIT_TRIGGER_ID, "");
+        }
+        
+      createFlubarooMenu(ss);
+      
+      setAutoGradeNotification("Auto grading has been turned off.");
+    }
+}
+
+// autoGradeOnFinalize:
+// This function could be called in 2 places. First, in toggleAutoGrade() if auto-grade is turned on,
+// and grading options don't need to be collected or updated. Second, if they do need grading options
+// updated when auto-grade is turned on, this finalize function is called at the very end of the
+// update process, which happens in emailGradesHandler()
+function autoGradeOnFinalize()
+{
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // not enabled, so enable it.
+  ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_ENABLED, "true");
+      
+  // setup the trigger to auto grade on form submit
+  var onSubmitTrigger = ScriptApp.newTrigger("triggerForAutoGrade").forSpreadsheet(ss).onFormSubmit().create();
+      
+  ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_SUBMIT_TRIGGER_ID, onSubmitTrigger.getUniqueId());
+  
+  createFlubarooMenu(ss);
+  
+  setAutoGradeNotification("Flubaroo is waiting for new submissions to grade. Don't make any changes to the spreadsheet.");
+}
+
+function triggerForAutoGrade()
+{ 
+  // a submission was made. if this function is being called, it's because
+  // the auto grade feature is enabled. we need to ensure we don't grade the
+  // assignment if it's already being graded. so we'll try to get a lock.
+  // if we fail, it's because grading is already taking place, and this submission
+  // will just be graded later.
+   
+  // if we're here due to a time trigger, delete the trigger first.
+  var trigger_id = ScriptProperties.getProperty(SCRIPT_AUTO_GRADE_TIMED_TRIGGER_ID);
+  if ((trigger_id != null) && (trigger_id != ""))
+    {
+      deleteTrigger(trigger_id);
+      ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_TIMED_TRIGGER_ID, "");
+    }
+  
+  // try to get the lock
+  var grading_lock = LockService.getPublicLock();
+  var success = grading_lock.tryLock(10);
+  if (!success)
+    {
+      return;
+    }
+  
+  // record the number of rows in the submission sheet just before grading.
+  ss = SpreadsheetApp.getActiveSpreadsheet();
+  sheet = getSheetWithSubmissions(ss);
+  if (sheet == null)
+    {
+      return;
+    }
+  
+  var last_row_before = sheet.getLastRow();
+ 
+  autoGrade(); // the magic happens here
+
+  // release lock before we check for additional submissions.
+  // this ensures we won't miss any submissions due to race conditions on the row number check.
+  // anything we miss will  be handled by the submit trigger.
+  grading_lock.releaseLock();
+
+  var last_row_after = sheet.getLastRow();
+  
+  if (last_row_after != last_row_before)
+    {
+      // new submissions came in whilst we were grading. 
+      // we'll set a timer to call back this trigger, so they can be graded.
+       var oneTimeOnlyTrigger = ScriptApp.newTrigger("triggerForAutoGrade").timeBased().after(2000).create();
+       ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_TIMED_TRIGGER_ID, oneTimeOnlyTrigger.getUniqueId());
+    }
+  
+}
+
+function autoGrade()
+{ 
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetWithSubmissions(ss);
+  
+  gbl_skip_ui = true; // skip over all windows to select options.
+ 
+  //setAutoGradeNotification("New submissions have been detected! Re-grading...");
+  
+  gradeStep1(); // simulate teacher grading from menu.
+
+  //setAutoGradeNotification("Now emailing students their grades...");
+  emailGrades();
+  
+  //setAutoGradeNotification("Flubaroo is waiting to grade new submissions...");
+  
+  gbl_skip_ui = false;
+}
+
+function setAutoGradeNotification(msg)
+{
+  // doesn't work...
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  ss.toast(msg, "Auto Grade Notification", 300);
+}
+
+function deleteTrigger(trigger_id)
+{
+  // Locate a trigger by unique ID
+  var all_triggers = ScriptApp.getProjectTriggers();
+  // Loop over all triggers
+  for (var i = 0; i < all_triggers.length; i++) 
+    {
+      if (all_triggers[i].getUniqueId() == trigger_id) 
+        {
+          // Found the trigger and now delete it
+          ScriptApp.deleteTrigger(all_triggers[i]);
+          break;
+        }
+    }
+}
+
+function getAutoGradingOptions()
+{
+  var options_present = autoGradingOptionsPresent();
+  var gather_app = null;
+  
+  if (options_present)
+    {
+        var rv = Browser.msgBox(langstr("FLB_STR_NOTIFICATION"), 
+                                "Before enabling auto grade, would you like to update your grading and email settings?",
+                                Browser.Buttons.YES_NO);
+        if (rv == "yes")
+          {
+            gather_app = launchUpdateOfAutoGradingOptions();
+          }     
+    }
+  else
+    {
+      Browser.msgBox(langstr("FLB_STR_NOTIFICATION"), 
+                              "Before enabling auto grade, you will need to setup your grading and email settings. Click OK to proceed.",
+                              Browser.Buttons.OK);
+      gather_app = launchUpdateOfAutoGradingOptions();
+    }
+
+  // returns either null (if options are already present and don't need to be updated), or 
+  // an instance of the UI App that's gathering them.
+  return gather_app;  
+}
+
+
+function autoGradingOptionsPresent()
+{
+  // ensure all 3 needed properties are present for grading and emailing.
+  if (ScriptProperties.getProperty(SCRIPT_PROP_UI_GRADING_OPT) == null)
+    {
+      return false;
+    }
+  
+  if (ScriptProperties.getProperty(SCRIPT_PROP_ANSWER_KEY_ROW_NUM) == null)
+    {
+      return false;
+    }
+  
+  if (ScriptProperties.getProperty(SCRIPT_PROP_EMAIL_ADDRESS_QUESTION) == null)
+    {
+      return false;
+    }
+  
+  return true;
+}
+
+function launchUpdateOfAutoGradingOptions()
+{
+  ScriptProperties.setProperty(SCRIPT_AUTO_GRADE_GATHERING_OPTIONS, "true");
+  
+  // gather or update grading options
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetWithSubmissions(ss);
+  var app = createStep1UI(sheet); 
+  ss.show(app); 
+  return app;
+}
+
+function checkAutoGradeGatheringOptions()
+{
+  var g = ScriptProperties.getProperty(SCRIPT_AUTO_GRADE_GATHERING_OPTIONS);
+  
+  if (g == null || g == "false")
+    {
+      return false;
+    }
+  
+  return true;
+}

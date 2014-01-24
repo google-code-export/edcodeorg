@@ -259,6 +259,14 @@ langs = {
       "es-es" : "Flubaroo - Calificando Su Examen",
     },
   
+  "FLB_STR_GRADING_CELL_MESSAGE" :
+    // Message in cell A1 that appears while assignment is being graded
+    { "en-us" : "Grading...",
+     
+      "es-es" : "Calificando...",
+    },
+  
+  
   "FLB_STR_GRADING_COMPLETE_TITLE" :
     // Window title for "Grading Complete" window after grading occurs
     { "en-us" : "Flubaroo - Grading Complete",
@@ -781,6 +789,20 @@ langs = {
       "es-es" : "Seleccionar Idioma",
     },
 
+  
+ "FLB_STR_MENU_ENABLE_AUTO_GRADE" :
+    // Menu option to enable auto grade feature
+    { "en-us" : "Enable Auto Grade",
+     
+      "es-es" : "Translation Needed",
+    },
+
+  "FLB_STR_MENU_DISABLE_AUTO_GRADE" :
+    // Menu option to disable auto grade feature
+    { "en-us" : "Disable Auto Grade",
+     
+      "es-es" : "Translation Needed",
+    },
   
   "FLB_STR_BUTTON_CONTINUE" :
     // Word that appears on the "Continue" button in grading and emailing grades.

@@ -74,14 +74,23 @@ function justUpgradedFirstTime()
      }
     
    var menuEntries = [];
- 
+   
+   var ag_enabled = ScriptProperties.getProperty(SCRIPT_AUTO_GRADE_ENABLED);
+   if (ag_enabled == "true")
+     {
+       // Don't allow the usual options. Just the ability to turn this off.
+       menuEntries.push({name: langstr("FLB_STR_MENU_DISABLE_AUTO_GRADE"), functionName: "toggleAutoGrade"});
+       ss.addMenu(gbl_menu_name, menuEntries);   
+       return;
+     }
+   
    // Only show "Re-grade, Email Grade, View Report, etc, if (a) Grades sheet is present and
    // (b) user didn't just upgrade to a new version of Flubaroo in this sheet. If they just upgraded,
    // assignment must be re-graded first, incase format of Grades sheet is different in new version.
-   if (grades_present && !justUpgradedThisSheet())
+   else if (grades_present && !justUpgradedThisSheet())
      {
-       menuEntries.push({name: langstr("FLB_STR_MENU_REGRADE_ASSIGNMENT"), functionName: "gradeStep1"});
-       menuEntries.push({name: langstr("FLB_STR_MENU_EMAIL_GRADES"), functionName: "emailGrades"});
+       menuEntries.push({name: langstr("FLB_STR_MENU_REGRADE_ASSIGNMENT"), functionName: "menuGradeStep1"});
+       menuEntries.push({name: langstr("FLB_STR_MENU_EMAIL_GRADES"), functionName: "menuEmailGrades"});
        
        menuEntries.push({name: langstr("FLB_STR_MENU_VIEW_REPORT"), functionName: "viewReport"});
              
@@ -112,6 +121,9 @@ function justUpgradedFirstTime()
      }
    
    menuEntries.push(null); // line break
+   menuEntries.push({name: langstr("FLB_STR_MENU_ENABLE_AUTO_GRADE"), functionName: "toggleAutoGrade"});
+   menuEntries.push(null); // line break
+
    menuEntries.push({name: langstr("FLB_STR_MENU_SET_LANGUAGE"), functionName: "setLanguage"});
    menuEntries.push({name: langstr("FLB_STR_MENU_ABOUT"), functionName: "aboutFlubaroo"});  
      
