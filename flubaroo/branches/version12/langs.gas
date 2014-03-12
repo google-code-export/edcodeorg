@@ -54,13 +54,15 @@ function setLanguageHandler(e)
    var ss = SpreadsheetApp.getActiveSpreadsheet();
    var app = UiApp.getActiveApplication();
 
+   var up = PropertiesService.getUserProperties();
+   
    var language_id = e.parameter.language_select;
    customLog(language_id);
    
-   UserProperties.setProperty(USER_PROP_LANGUAGE_ID, language_id);
+   up.setProperty(USER_PROP_LANGUAGE_ID, language_id);
    
    // reload menu
-   createFlubarooMenu(ss);
+   createFlubarooMenu();
    
    // rename Student Submissions sheet, if it was already set to an English name.
    //renameSubmissionsSheet();
@@ -73,10 +75,12 @@ function setLanguageHandler(e)
 // langstr: Given a string id, returns the localized version of that string, based on the global gbl_lang_id.
 function langstr(id)
 {
+  var up = PropertiesService.getUserProperties();
+  
   if (gbl_lang_id == "")
     {
       // not yet defined. look it up!
-      gbl_lang_id = UserProperties.getProperty(USER_PROP_LANGUAGE_ID);
+      gbl_lang_id = up.getProperty(USER_PROP_LANGUAGE_ID);
       
       if (gbl_lang_id == "" || gbl_lang_id == null || gbl_lang_id === undefined)
         {
@@ -86,6 +90,13 @@ function langstr(id)
     }
 
   return langs[id][gbl_lang_id];
+}
+
+// Special version of langstr that returns the string in English-US.
+// Used in the rare & special case when we can't lookup the user's preferred language.
+function langstr_en(id)
+{
+  return langs[id]["en-us"];
 }
 
 // langs:
@@ -682,10 +693,10 @@ langs = {
   "FLB_STR_ABOUT_FLUBAROO_MSG2" :
     // About Flubaroo message (2 of 2)
     { "en-us" : "To learn more, visit www.flubaroo.com. Also send \
-                 feedback or ideas to feedback@flubaroo.com.",
+                 feedback or ideas to dave@edcode.org.",
      
       "es-es" : "Para aprender más visite www.flubaroo.com. También \
-                 puede enviar sus comentarios o ideas a feedback@flubaroo.com.",
+                 puede enviar sus comentarios o ideas a dave@edcode.org.",
     },
   
   "FLB_STR_CANNOT_FIND_SUBM_MSG" :
@@ -812,7 +823,8 @@ langs = {
   "FLB_STR_NEW_VERSION_NOTICE" :
     // Message that is displayed when a new version of Flubaroo is installed.
     { "en-us" : "You've installed a new version Flubaroo! Visit \
-                 flubaroo.com/blog to see what's new.",
+                 flubaroo.com/blog to see what's new. Note that you may \
+                 need to re-grade your assignment.",
      
       "es-es" : "¡Has instalado una nueva versión de Flubaroo! \
                  Visita flubaroo.com/blog para ver las novedades.",

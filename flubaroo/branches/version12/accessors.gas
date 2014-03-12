@@ -7,7 +7,6 @@
 // Other functions that simply make spreadsheet access easier
 // (e.g. getCellValue), but which don't utilize private info, should be
 // placed in the 'utilities.gas' file instead of this one.
-
  
  // getNumQuestionsFromSubmissions:
  // Given a reference to the submissions sheet, calculates and returns the number
@@ -55,6 +54,8 @@
 
 function getSheetWithSubmissionsInternal(ss)
 {
+   var up = PropertiesService.getUserProperties();
+  
    var sheet = ss.getSheetByName(langstr("FLB_STR_SHEETNAME_STUD_SUBM"));
    
    if (sheet == null)
@@ -66,7 +67,7 @@ function getSheetWithSubmissionsInternal(ss)
        
        // if not english, then rename old style name to localized
        // version.
-       var lang_id = UserProperties.getProperty(USER_PROP_LANGUAGE_ID);
+       var lang_id = up.getProperty(USER_PROP_LANGUAGE_ID);
        if ((sheet != null) && (lang_id != null) && (lang_id != 'en-us'))
          {
            sheet.setName(langstr("FLB_STR_SHEETNAME_STUD_SUBM"));
@@ -99,6 +100,8 @@ function getSheetWithGradesInternal(ss)
 {
    var sheet = ss.getSheetByName(langstr("FLB_STR_SHEETNAME_GRADES"));
   
+   var up = PropertiesService.getUserProperties();
+  
    if (sheet == null)
      {
        // could be that user switch languages since older version.
@@ -108,7 +111,7 @@ function getSheetWithGradesInternal(ss)
        
        // if not english, then rename old style name to localized
        // version.
-       var lang_id = UserProperties.getProperty(USER_PROP_LANGUAGE_ID);
+       var lang_id = up.getProperty(USER_PROP_LANGUAGE_ID);
        if ((sheet != null) && (lang_id != null) && (lang_id != 'en-us'))
          {
            sheet.setName(langstr("FLB_STR_SHEETNAME_GRADES"));

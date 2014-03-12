@@ -25,6 +25,8 @@
  
  function createReportUI(ss, grades_sheet)
  {
+   var dp = PropertiesService.getDocumentProperties();
+   
    var app = UiApp.createApplication().setTitle(langstr("FLB_STR_VIEW_REPORT_WINDOW_TITLE"))
                                       .setWidth("680").setHeight("490");
      
@@ -35,13 +37,13 @@
    
    var title = ss.getName();
    
-   var chart_url = ScriptProperties.getProperty(SCRIPT_PROP_HISTOGRAM_URL);
+   var chart_url = dp.getProperty(DOC_PROP_HISTOGRAM_URL);
   
    // Declare the handler that will be called when the 'Continue' or 'Cancel'
    // buttons are clicked.
    var handler = app.createServerClickHandler('emailReportHandler');
    
-   var email_addr = Session.getActiveUser().getEmail();
+   var email_addr = Session.getEffectiveUser().getEmail();
    var email_addr_field = app.createHidden("email_addr", email_addr)
                                 .setId("email_addr").setName("email_addr");
                                   
@@ -85,6 +87,8 @@
  
  function emailReportHandler(e)
  {
+   var dp = PropertiesService.getDocumentProperties();
+   
    var app = UiApp.getActiveApplication();
    var ss = SpreadsheetApp.getActiveSpreadsheet();
    var grades_sheet = getSheetWithGrades(ss);
@@ -96,7 +100,7 @@
    
    var title = ss.getName();
    
-   var chart_url = ScriptProperties.getProperty(SCRIPT_PROP_HISTOGRAM_URL);
+   var chart_url = dp.getProperty(DOC_PROP_HISTOGRAM_URL);
    var title = ss.getName();
    
    var email_address = e.parameter.email_addr;

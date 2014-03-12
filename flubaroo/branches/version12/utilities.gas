@@ -6,12 +6,12 @@
 // rowCache
 rc = null; 
 
- // onInstall: 
+// onInstall: 
  // Gets called when script is first installed.
  // Sets up menu (really just calls onOpen() ).
- function onInstall()
+ function onInstall(e)
  {
-   onOpen();
+   onOpen(e);
    
    showNewVersionNotice();
  }  
@@ -19,23 +19,40 @@ rc = null;
  // onOpen:
  // Gets called when the spreadsheet is opened.
  // Sets up the menu and shows a notification.
- function onOpen()
+ function onOpen(e)
  {
-   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   if (e && e.authMode == ScriptApp.AuthMode.NONE)
+     {
+       // Script is present in a sheet where it hasn't been used yet.
+       // (added as an Add-On in a different sheet where it *was* used).
+       // This is needed to ensure we don't try to read properties.
+       createNonAuthMenu();
+     }
    
-   createFlubarooMenu(ss);
-   
-   // Rename "Sheet1" something more friendly to enhance useability.
-   var status = renameSubmissionsSheet();
+   else
+     {
+       createFlubarooMenu();
+      
+       // Rename "Sheet1" something more friendly to enhance useability.
+       //var status = renameSubmissionsSheet();  // moved to gradeStep1 for consistency with NonAuth case
+     }
  }
+
+function onEnable(e) 
+{
+  onOpen(e);
+}
+
 
 // justUpgradedThisSheet:
 // Returns true if this is the first time user has upgraded to or installed
 // a new version of Flubaroo in this spreadsheet.
 function justUpgradedThisSheet()
 {
+  var dp = PropertiesService.getDocumentProperties();
+  
   // Let the user know if this is a new version.
-  var sver = ScriptProperties.getProperty(SCRIPT_PROP_SHEET_INSTALLED_VERSION);
+  var sver = dp.getProperty(DOC_PROP_SHEET_INSTALLED_VERSION);
   
   // new version doesn't get set in properties until assignment
   // is first graded after upgrading.
@@ -52,7 +69,9 @@ function justUpgradedThisSheet()
 // version of Flubaroo.
 function justUpgradedFirstTime()
 {
-  var uver = UserProperties.getProperty(USER_PROP_LATEST_VERSION_INSTALLED);
+  var up = PropertiesService.getUserProperties();
+  
+  var uver = up.getProperty(USER_PROP_LATEST_VERSION_INSTALLED);
   
   // new version doesn't get set in properties until assignment
   // is first graded after upgrading.
@@ -64,58 +83,83 @@ function justUpgradedFirstTime()
   return false;
 }
 
- function createFlubarooMenu(ss)
- {
+
+// createNonAuthMenu:
+// We're in the case when this Add-On hasn't yet been used in the sheet, even though
+// it's been approved in another sheet. So all we're able to do is setup a menu (i.e.
+// can't read properties, etc). Setup a simple English menu, since we can't lookup their lang.
+function createNonAuthMenu()
+{    
+  var menuEntries = [];
+   
+  var ui = SpreadsheetApp.getUi();
+  var menu = ui.createMenu(gbl_menu_name);
+   
+  menu.addItem(langstr_en("FLB_STR_MENU_GRADE_ASSIGNMENT"), "gradeStep1");
+  menu.addSeparator(); // line break
+  menu.addItem(langstr_en("FLB_STR_MENU_SET_LANGUAGE"), "setLanguage");
+  menu.addItem(langstr_en("FLB_STR_MENU_ABOUT"), "aboutFlubaroo");
+  menu.addToUi();
+}
+
+function createFlubarooMenu()
+ {   
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var dp = PropertiesService.getDocumentProperties();
+  
    var grades_present = false;
- 
+   
    if (getSheetWithGrades(ss) != null)
      {
        grades_present = true;
      }
     
    var menuEntries = [];
- 
+   
+   var ui = SpreadsheetApp.getUi();
+   var menu = ui.createMenu(gbl_menu_name);
+   
    // Only show "Re-grade, Email Grade, View Report, etc, if (a) Grades sheet is present and
    // (b) user didn't just upgrade to a new version of Flubaroo in this sheet. If they just upgraded,
    // assignment must be re-graded first, incase format of Grades sheet is different in new version.
    if (grades_present && !justUpgradedThisSheet())
      {
-       menuEntries.push({name: langstr("FLB_STR_MENU_REGRADE_ASSIGNMENT"), functionName: "gradeStep1"});
-       menuEntries.push({name: langstr("FLB_STR_MENU_EMAIL_GRADES"), functionName: "emailGrades"});
+       menu.addItem(langstr("FLB_STR_MENU_REGRADE_ASSIGNMENT"), "gradeStep1");
+       menu.addItem(langstr("FLB_STR_MENU_EMAIL_GRADES"), "emailGrades");
        
-       menuEntries.push({name: langstr("FLB_STR_MENU_VIEW_REPORT"), functionName: "viewReport"});
+       menu.addItem(langstr("FLB_STR_MENU_VIEW_REPORT"), "viewReport");
              
-       menuEntries.push(null); // line break
+       menu.addSeparator(); // line break
        
        if (helpTipsHidden())
          {
-           menuEntries.push({name: langstr("FLB_STR_MENU_EDIT_HELP_TIPS"), functionName: "toggleHelpTips"});
+           menu.addItem(langstr("FLB_STR_MENU_EDIT_HELP_TIPS"), "toggleHelpTips");
          }
        else
          {
-           menuEntries.push({name: langstr("FLB_STR_MENU_HIDE_HELP_TIPS"), functionName: "toggleHelpTips"});
+           menu.addItem(langstr("FLB_STR_MENU_HIDE_HELP_TIPS"), "toggleHelpTips");
          }
  
-       var col_hidden = ScriptProperties.getProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN);
+       var col_hidden = dp.getProperty(DOC_PROP_STUDENT_FEEDBACK_HIDDEN);
        if (col_hidden == "true")
          {
-           menuEntries.push({name: langstr("FLB_STR_MENU_EDIT_FEEDBACK"), functionName: "toggleFeedback"});
+           menu.addItem(langstr("FLB_STR_MENU_EDIT_FEEDBACK"), "toggleFeedback");
          }
        else
          {
-           menuEntries.push({name: langstr("FLB_STR_MENU_HIDE_FEEDBACK"), functionName: "toggleFeedback"});
+           menu.addItem(langstr("FLB_STR_MENU_HIDE_FEEDBACK"), "toggleFeedback");
          }
      }
    else
      {
-       menuEntries.push({name: langstr("FLB_STR_MENU_GRADE_ASSIGNMENT"), functionName: "gradeStep1"});
+       menu.addItem(langstr("FLB_STR_MENU_GRADE_ASSIGNMENT"), "gradeStep1");
      }
    
-   menuEntries.push(null); // line break
-   menuEntries.push({name: langstr("FLB_STR_MENU_SET_LANGUAGE"), functionName: "setLanguage"});
-   menuEntries.push({name: langstr("FLB_STR_MENU_ABOUT"), functionName: "aboutFlubaroo"});  
-     
-   ss.addMenu(gbl_menu_name, menuEntries);   
+   menu.addSeparator(); // line break
+   menu.addItem(langstr("FLB_STR_MENU_SET_LANGUAGE"), "setLanguage");
+   menu.addItem(langstr("FLB_STR_MENU_ABOUT"), "aboutFlubaroo");  
+
+   menu.addToUi(); 
  }
 
 
@@ -175,14 +219,16 @@ function justUpgradedFirstTime()
  
 function toggleFeedback()
 {
+  var dp = PropertiesService.getDocumentProperties();
+  
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var grades_sheet = getSheetWithGrades(ss);
   
-  var num_stud_identifiers = ScriptProperties.getProperty(SCRIPT_PROP_NUM_STUDENT_IDENTIFIERS);
+  var num_stud_identifiers = dp.getProperty(DOC_PROP_NUM_STUDENT_IDENTIFIERS);
   
   var metric_start_col = 2 + parseInt(num_stud_identifiers);
   var feedback_col_num =  metric_start_col + METRIC_STUDENT_FEEDBACK;
-  var col_hidden = ScriptProperties.getProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN);
+  var col_hidden = dp.getProperty(DOC_PROP_STUDENT_FEEDBACK_HIDDEN);
   
   if (col_hidden == "true")
     {
@@ -190,21 +236,23 @@ function toggleFeedback()
       grades_sheet.showColumns(feedback_col_num);
       var range = grades_sheet.getRange(gbl_grades_start_row_num +1, feedback_col_num);
       grades_sheet.setActiveSelection(range);
-      ScriptProperties.setProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN, "false");
+      dp.setProperty(DOC_PROP_STUDENT_FEEDBACK_HIDDEN, "false");
     }
   else
     {
       grades_sheet.hideColumns(feedback_col_num);
-      ScriptProperties.setProperty(SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN, "true");
+      dp.setProperty(DOC_PROP_STUDENT_FEEDBACK_HIDDEN, "true");
     }
   
-  createFlubarooMenu(ss);
+  createFlubarooMenu();
 }
 
 
 function helpTipsHidden()
 {
-  var ht_hidden = ScriptProperties.getProperty(SCRIPT_PROP_HELP_TIPS_HIDDEN);
+  var dp = PropertiesService.getDocumentProperties();
+  
+  var ht_hidden = dp.getProperty(DOC_PROP_HELP_TIPS_HIDDEN);
   if (ht_hidden == null)
     {
       // handle first case when not set yet.
@@ -223,10 +271,12 @@ function helpTipsHidden()
 
 function toggleHelpTips()
 {
+  var dp = PropertiesService.getDocumentProperties();
+   
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var subm_sheet = getSheetWithSubmissions(ss);
   
-  var num_stud_identifiers = ScriptProperties.getProperty(SCRIPT_PROP_NUM_STUDENT_IDENTIFIERS);
+  var num_stud_identifiers = dp.getProperty(DOC_PROP_NUM_STUDENT_IDENTIFIERS);
   
   var tips_present = false;
   if (getTipsRow(subm_sheet) != null)
@@ -238,7 +288,7 @@ function toggleHelpTips()
     {
       // unhide or insert Help Tips row
       ss.setActiveSheet(subm_sheet);
-      ScriptProperties.setProperty(SCRIPT_PROP_HELP_TIPS_HIDDEN, "false");
+      dp.setProperty(DOC_PROP_HELP_TIPS_HIDDEN, "false");
 
       if (tips_present)
         {
@@ -259,10 +309,10 @@ function toggleHelpTips()
         {
           subm_sheet.hideRows(2);
         }
-      ScriptProperties.setProperty(SCRIPT_PROP_HELP_TIPS_HIDDEN, "true");
+      dp.setProperty(DOC_PROP_HELP_TIPS_HIDDEN, "true");
     }
   
-  createFlubarooMenu(ss);
+  createFlubarooMenu();
 }
 
 
@@ -406,9 +456,9 @@ function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
      }
    else if (all_sheets.length > 1)
      {
-       // More than one sheet. If can find "Sheet1", assume this one has
+       // More than one sheet. If can find "Form Responses 1", assume this one has
        // the submissions and rename it.
-       sheet = ss.getSheetByName("Sheet1");
+       sheet = ss.getSheetByName("Form Responses 1");
        if (sheet != null)
          {
            // Rename "Sheet1" to something more friendly.
@@ -424,6 +474,11 @@ function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
 // getTipsRow:
 function getTipsRow(subm_sheet)
 {
+  if (subm_sheet.getLastRow() < 2)
+    {
+      return null;
+    }
+  
   var help_tips_vals = singleRowToArray(subm_sheet,
                                         2,
                                         getNumQuestionsFromSubmissions(subm_sheet));
@@ -455,6 +510,8 @@ function createGATrackingUrl(encoded_page_name)
 
 function createGACookie()
 {
+  var up = PropertiesService.getUserProperties();
+  
   var a = "";
   var b = "100000000";
   var c = "200000000";
@@ -464,7 +521,7 @@ function createGACookie()
   var ms = dt.getTime();
   var ms_str = ms.toString();
  
-  var flubaroo_uid = UserProperties.getProperty("flubaroo_uid");
+  var flubaroo_uid = up.getProperty("flubaroo_uid");
   if ((flubaroo_uid == null) || (flubaroo_uid == ""))
     {
       // shouldn't happen unless user explicitly removed flubaroo_uid from properties,
@@ -514,13 +571,15 @@ function logGrading(ss_name)
 
 function logActiveUserGrading()
 {
+  var up = PropertiesService.getUserProperties();
+  
   // track 30 day actives using month. to be counted as an active,
   // user, user must grade at least 1 assignment during the month.
   // we also check that the lifetime usage > 4, to filter out
   // people just playing around with or testing out Flubaroo.
-  var track_month = UserProperties.getProperty(USER_PROP_GRADE_MONTH);
-  var track_month_count = UserProperties.getProperty(USER_PROP_GRADE_MONTH_COUNT);
-  var track_lifetime_count = UserProperties.getProperty(USER_PROP_GRADE_LIFETIME_COUNT);
+  var track_month = up.getProperty(USER_PROP_GRADE_MONTH);
+  var track_month_count = up.getProperty(USER_PROP_GRADE_MONTH_COUNT);
+  var track_lifetime_count = up.getProperty(USER_PROP_GRADE_LIFETIME_COUNT);
       
   var d = new Date();
   var current_month = (d.getMonth() + 1).toString();
@@ -555,9 +614,9 @@ function logActiveUserGrading()
   track_lifetime_count++;
   track_lifetime_count = track_lifetime_count.toString();
       
-  UserProperties.setProperty(USER_PROP_GRADE_MONTH, track_month);
-  UserProperties.setProperty(USER_PROP_GRADE_MONTH_COUNT, track_month_count);
-  UserProperties.setProperty(USER_PROP_GRADE_LIFETIME_COUNT, track_lifetime_count);
+  up.setProperty(USER_PROP_GRADE_MONTH, track_month);
+  up.setProperty(USER_PROP_GRADE_MONTH_COUNT, track_month_count);
+  up.setProperty(USER_PROP_GRADE_LIFETIME_COUNT, track_lifetime_count);
   
   // log once and only once per month
   if ((track_lifetime_count > 4) && (track_month_count == "1"))
@@ -611,24 +670,29 @@ function logRepeatInstall()
 // until after first grade.
 function setCurrentVersionInfo()
 {
-  var sver = ScriptProperties.getProperty(SCRIPT_PROP_SHEET_INSTALLED_VERSION);
+  var dp = PropertiesService.getDocumentProperties();
+  var up = PropertiesService.getUserProperties();
+  
+  var sver = dp.getProperty(DOC_PROP_SHEET_INSTALLED_VERSION);
   if ((sver == null) || (sver != gbl_version_str))
     {
-      ScriptProperties.setProperty(SCRIPT_PROP_SHEET_INSTALLED_VERSION, gbl_version_str);
+      dp.setProperty(DOC_PROP_SHEET_INSTALLED_VERSION, gbl_version_str);
     }
 
   // take note of the latest version the user has installed across all sheets.
   // used to show user version update notice.
-  var uver = UserProperties.getProperty(USER_PROP_LATEST_VERSION_INSTALLED);
+  var uver = up.getProperty(USER_PROP_LATEST_VERSION_INSTALLED);
   if ((uver == null) || (uver != gbl_version_str))
     {
-      UserProperties.setProperty(USER_PROP_LATEST_VERSION_INSTALLED, gbl_version_str);
+      up.setProperty(USER_PROP_LATEST_VERSION_INSTALLED, gbl_version_str);
     }
 }
 
 function setFlubarooUid()
 { 
-  var flubaroo_uid = UserProperties.getProperty("flubaroo_uid");
+  var up = PropertiesService.getUserProperties();
+
+  var flubaroo_uid = up.getProperty("flubaroo_uid");
   if (flubaroo_uid == null || flubaroo_uid == "")
     {
       // user has never installed Flubaroo before (in any spreadsheet)
@@ -636,7 +700,7 @@ function setFlubarooUid()
       var ms = dt.getTime();
       var ms_str = ms.toString();
  
-      UserProperties.setProperty("flubaroo_uid", ms_str);
+      up.setProperty("flubaroo_uid", ms_str);
       logFirstInstall();
     }
 }

@@ -3,9 +3,7 @@
 // This file contains all constants and global variable definitions.
 
 // global variable to turn on/off logging. should always be 'false' in
-// published script. A new sheet called 'log' has to be manually created 
-// for this to work and on re-grade the existing grades sheet isn't 
-// deleted but a new one created.
+// published script.
 gbl_do_logging = false;
 
 // global variable to enable reading of UI options (grading opts,
@@ -15,7 +13,7 @@ gbl_do_logging = false;
 gbl_skip_ui = false;
 
 // Current version. Shown in "About Flubaroo" dialogue.
-gbl_version_str = "Version 3.11";
+gbl_version_str = "Version 12";
 
 // Version update notice. Set this to true when a new version is made
 // available (gbl_version_str is updated). A message will then be popped up during
@@ -62,9 +60,10 @@ gbl_num_summary_rows = 4;  // number of rows at the top of 'Grades' that contain
  HIDDEN_GOODIES_CHART_URL = 2;
  
  FLUBAROO_WELCOME_IMG_URL =
-              'http://flubaroo.appspot.com/welcome_to_flubaroo_sm.png';
+              //'http://flubaroo.appspot.com/welcome_to_flubaroo_sm.png';
+                'http://flubaroo.appspot.com/flubaroo_128x128_no_padding.png';
  FLUBAROO_WORKING_IMG_URL =
-              'http://flubaroo.appspot.com/ajax-loader.gif';
+              'http://flubaroo.appspot.com/flubaroo_working.gif';
  
 /* grading option identifiers */
 GRADING_OPT_STUD_ID = "Identifies Student";
@@ -110,14 +109,14 @@ STATUS_NOT_FOUND = 1
 STATUS_NO_EFFECT = 2
  
  // script and user properties
-SCRIPT_PROP_HISTOGRAM_URL = "flubaroo_histogram_url";
-SCRIPT_PROP_NUM_GRADED_SUBM = "flubaroo_num_graded_subm";
-SCRIPT_PROP_UI_GRADING_OPT = "flubaroo_ui_grading_opt";
-SCRIPT_PROP_ANSWER_KEY_ROW_NUM = "flubaroo_anskey_row_num";
-SCRIPT_PROP_STUDENT_FEEDBACK_HIDDEN = "flubaroo_student_feedback_hidden";
-SCRIPT_PROP_HELP_TIPS_HIDDEN = "flubaroo_help_tips_hidden";
-SCRIPT_PROP_NUM_STUDENT_IDENTIFIERS = "flubaroo_num_student_identifiers";
-SCRIPT_PROP_SHEET_INSTALLED_VERSION = "flubaroo_sheet_installed_version";
+DOC_PROP_HISTOGRAM_URL = "flubaroo_histogram_url";
+DOC_PROP_NUM_GRADED_SUBM = "flubaroo_num_graded_subm";
+DOC_PROP_UI_GRADING_OPT = "flubaroo_ui_grading_opt";
+DOC_PROP_ANSWER_KEY_ROW_NUM = "flubaroo_anskey_row_num";
+DOC_PROP_STUDENT_FEEDBACK_HIDDEN = "flubaroo_student_feedback_hidden";
+DOC_PROP_HELP_TIPS_HIDDEN = "flubaroo_help_tips_hidden";
+DOC_PROP_NUM_STUDENT_IDENTIFIERS = "flubaroo_num_student_identifiers";
+DOC_PROP_SHEET_INSTALLED_VERSION = "flubaroo_sheet_installed_version";
 
 USER_PROP_GRADE_MONTH = "flubaroo_grade_month";  // month that count corresponds to
 USER_PROP_GRADE_MONTH_COUNT = "flubaroo_grade_month_count"; // # of times grading has occured (on any assignment) during this month
