@@ -37,7 +37,7 @@ function createEmailGradesUI(sheet)
    var click_handler = app.createServerClickHandler('continueButtonClickHandler');
    var show_questions_value_change_handler = app.createServerChangeHandler('showQuestionsValueChangeHandler');
    
-   var email_addr = Session.getActiveUser().getEmail();
+   var email_addr = Session.getEffectiveUser().getEmail();
    var email_addr_field = app.createHidden("email_addr", email_addr)
                                 .setId("email_addr").setName("email_addr");
                               
@@ -213,8 +213,12 @@ function createEmailGradesUI(sheet)
      {
        // pull the email address for this submission
        var q = graded_subm.getQuestionByIndex(email_ques_index);
-       var email_address = q.getGradedVal(); // pull from Graded vals, incase teacher wants to edit.
+       
+       var email_address = q.getGradedVal(); // pull from Graded vals, incase teacher wants to edit it inline.
    
+       // trim any whitespace. a space after the address can cause sending to fail.
+       email_address = strTrim(email_address);       
+       
        if (!isValidEmailAddress(email_address) || (graded_subm.getAlreadyEmailed() != ""))
            {
              num_emails_unsent += 1;
@@ -295,12 +299,14 @@ function createEmailGradesUI(sheet)
          } 
        Browser.msgBox(langstr("FLB_STR_NOTIFICATION"), email_notification, 
                       Browser.Buttons.OK);   
+       //ss.toast(email_notification, langstr("FLB_STR_NOTIFICATION"), 60);
      }
    else
      {
        Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
                       langstr("FLB_STR_VIEW_EMAIL_GRADES_NO_EMAILS_SENT"),
                       Browser.Buttons.OK);
+       //ss.toast(langstr("FLB_STR_VIEW_EMAIL_GRADES_NO_EMAILS_SENT"), langstr("FLB_STR_NOTIFICATION"), 60);
      }
    
    return app;

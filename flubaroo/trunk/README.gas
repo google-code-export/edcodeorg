@@ -44,4 +44,8 @@
 
 //   Version 3.01, 6/26/13: Quick fix for answer key issue reported (issue 37).
 //   Version 3.02, 11/1/13: Fix for issues 39, 65, and 66. 
-//   Version 3.1, 1/2/13: Implementation of number ranges by Andrew Roberts (issue 42), andrewroberts.net.
+//   Version 3.1, 1/2/14: Implementation of number ranges by Andrew Roberts (issue 42), andrewroberts.net.
+//   Version 3.11 1/8/14: Quick fix for issue that affects TRUE/FALSE question types, introduced in 3.1.
+
+//   Version 12 3/11/14: First release for new Google sheets & Add-ons. Introducing new, simpler versioning scheme (just a number). 
+//                       Functinally the same as version 3/11/14, with the exception of some improved error handling.
