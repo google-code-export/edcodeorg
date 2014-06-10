@@ -1154,7 +1154,7 @@ GradedSubmission.prototype.gradeSubmission = function(q)
       // to each.
       for (var i = 0; i < key_list.length; i++)
         {
-          if (submission === key_list[i])
+          if (submission == key_list[i])
             {
               // Correct answer!
               grade_val = getPointsWorth(q.getGradingOption());

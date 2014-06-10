@@ -13,7 +13,7 @@ gbl_do_logging = false;
 gbl_skip_ui = false;
 
 // Current version. Shown in "About Flubaroo" dialogue.
-gbl_version_str = "Version 12";
+gbl_version_str = "Version 13";
 
 // Version update notice. Set this to true when a new version is made
 // available (gbl_version_str is updated). A message will then be popped up during

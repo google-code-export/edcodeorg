@@ -3,8 +3,11 @@
 // This file contains helper functions for a variety of purposes, as
 // well as the functions that handle script installation and menu setup.
 
+// gbl_land_id: identifies the language in the UI.
+gbl_lang_id = "";
+
 // rowCache
-rc = null; 
+rc = null;
 
 // onInstall: 
  // Gets called when script is first installed.
@@ -435,8 +438,8 @@ function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
        return STATUS_NO_EFFECT;
      }
    
-   // for non-english languages, try with the older style name.
-   // might still be laying around.
+   // for non-english languages, try with the older (english) style name.
+   // might still be laying around from when they changed languages.
    var sheet = ss.getSheetByName(gbl_subm_sheet_name);
    if (sheet)
      {
@@ -461,7 +464,7 @@ function writeArrayToRow(sheet, row_num, start_col, row_values, bold, color)
        sheet = ss.getSheetByName("Form Responses 1");
        if (sheet != null)
          {
-           // Rename "Sheet1" to something more friendly.
+           // Rename to something more friendly.
            sheet.setName(langstr("FLB_STR_SHEETNAME_STUD_SUBM"));
            return STATUS_OK;
          }
@@ -815,3 +818,126 @@ rowCache.prototype.getRow = function(sheet, row_num, num_cols)
   return row_cache[row_num];
 };
 
+
+function setLanguage()
+{
+   customLogClear();
+   
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var app = UiApp.createApplication()
+                      .setTitle(langstr("FLB_STR_MENU_SET_LANGUAGE"))
+                      .setWidth("230").setHeight("100");
+
+   var handler = app.createServerClickHandler('setLanguageHandler');
+  
+   // create the main panel to hold all content in the UI for this step,
+   var main_panel = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px');
+   app.add(main_panel);
+  
+   ss.show(app);
+ 
+   // create a pull-down box containing all the questions which identify a
+   // student. 
+   var lbox_name = "language_select";
+   var lbox = app.createListBox(false).setId(lbox_name).setName(lbox_name);
+   var position = -1;
+   
+   for (var item in langs)
+     {
+       lbox.addItem(langs[item]["FLB_LANG_IDENTIFIER"], item);
+     }
+   
+   lbox.setSelectedIndex(0);    
+   handler.addCallbackElement(lbox);  
+  
+    var hpanel = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '6px')
+    .add(app.createLabel(langstr("FLB_STR_MENU_SET_LANGUAGE") + ":"))
+       .add(lbox);
+   main_panel.add(hpanel);
+
+   var btnSubmit = app.createButton(langstr("FLB_STR_BUTTON_CONTINUE"),handler).setId('CONTINUE');
+  
+   main_panel.add(btnSubmit);
+ 
+   ss.show(app);   
+ }
+
+function setLanguageHandler(e)
+ {
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var app = UiApp.getActiveApplication();
+
+   var up = PropertiesService.getUserProperties();
+   
+   var language_id = e.parameter.language_select;
+ 
+   up.setProperty(USER_PROP_LANGUAGE_ID, language_id);
+   
+   // reload menu
+   createFlubarooMenu();
+   
+   // rename Student Submissions sheet, if it was already set to an English name.
+   //renameSubmissionsSheet();
+   
+   app.close()
+   return app;
+ }
+
+
+// langstr: Given a string id, returns the localized version of that string, based on the global gbl_lang_id.
+function langstr(id)
+{
+  var up = PropertiesService.getUserProperties();
+  
+  if (gbl_lang_id == "")
+    {
+      // not yet defined. look it up!
+      gbl_lang_id = up.getProperty(USER_PROP_LANGUAGE_ID);
+      
+      if (gbl_lang_id == "" || gbl_lang_id == null || gbl_lang_id === undefined)
+        {
+          // never explicitly set by user (via menu). set to default.
+          gbl_lang_id = "en-us"; // default
+        }
+    }
+  
+  // Return the specified string in the language selected. if not defined, return the English version.
+  if (langs[gbl_lang_id][id])
+    {
+      return langs[gbl_lang_id][id];
+    }
+  else
+    {
+      return langs['en-us'][id];
+    }
+}
+// Special version of langstr that returns the string in English-US.
+// Used in the rare & special case when we can't lookup the user's preferred language.
+function langstr_en(id)
+{
+  return langs["en-us"][id];
+}
+
+// checkForMissingTranslations: Used for testing purposes only, before publishing a 
+// new Add-on when a new language has been added.
+function checkForMissingTranslations()
+{  
+  customLogClear();
+  
+  var en_translations = langs['en-us']; // dont' change
+  
+  for (var lang_to_check in langs)
+    {
+      customLog("checking " + lang_to_check);
+      for (var en_str_to_check in en_translations)
+        {
+          //Logger.log("checking: " + en_str_to_check);
+          if (!(en_str_to_check in langs[lang_to_check]))
+            {
+              customLog(lang_to_check + " is missing: " + en_str_to_check);
+            }
+        }
+    }
+}
