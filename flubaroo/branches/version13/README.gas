@@ -30,16 +30,6 @@
       New Features:
       - Flubaroo won't re-email students who have already been emailed (Issue 2).
       - Flubaroo can now send an optional help tip per question to students in the email (Issue 3).
-      - Flubaroo can now send individualized feedback to each student in the email.
-      - Flubaroo now supports Spanish!!! (Issue 4). Special thanks to these people who collaboratively 
-        translated Flubaroo into Spanish in record time:
-
-           ** Felipe Calvo **
-           ** Gabriel Crivelli **
-           ** Luis Escolar **
-           ** Iñaki Fernández **
-           ** Manuel Fernández **
-           ** Gatech López **
 */                
 
 //   Version 3.01, 6/26/13: Quick fix for answer key issue reported (issue 37).
@@ -48,4 +38,8 @@
 //   Version 3.11 1/8/14: Quick fix for issue that affects TRUE/FALSE question types, introduced in 3.1.
 
 //   Version 12 3/11/14: First release for new Google sheets & Add-ons. Introducing new, simpler versioning scheme (just a number). 
-//                       Functinally the same as version 3/11/14, with the exception of some improved error handling.
+//                       Functinally the same as version 3.11, with the exception of some improved error handling.
+
+//   Version 13 6/9/14: Fixed %or bug (issue 86), fixed minor issue with "Incorrect" text in emails sent, and modified 
+//                      multiple language support to make it easier for contributors to localize Flubaroo. Added in notice
+//                      if user is over their daily email quota. Also added in translations for Swedish, Dutch, and Russian.

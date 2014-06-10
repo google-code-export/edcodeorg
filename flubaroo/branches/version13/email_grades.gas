@@ -16,6 +16,16 @@ function emailGrades()
        return;
      }
  
+   var quota_remaining = MailApp.getRemainingDailyQuota();
+
+   if (quota_remaining == 0)
+     {
+       Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
+                      langstr("FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED"),
+                      Browser.Buttons.OK);
+       return;
+     }
+   
    var app = createEmailGradesUI(ss);
    ss.show(app);   
  }
@@ -204,6 +214,7 @@ function createEmailGradesUI(sheet)
    var msg_title = langstr("FLB_STR_EMAIL_GRADES_EMAIL_SUBJECT") + ' "' + assignment_name + '"';
    var msg_body = "";
                    
+   var num_email_send_attempts = 0;
    var num_emails_sent = 0;
    var num_emails_unsent = 0;
    
@@ -232,6 +243,8 @@ function createEmailGradesUI(sheet)
                                             instructor_message,
                                             graded_subm); // grading options
            
+       num_email_send_attempts +=1;
+       
        try
          {
            MailApp.sendEmail(email_address, msg_title, "",
@@ -301,11 +314,11 @@ function createEmailGradesUI(sheet)
                       Browser.Buttons.OK);   
        //ss.toast(email_notification, langstr("FLB_STR_NOTIFICATION"), 60);
      }
-   else
+   else  // no emails sent
      {
        Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
-                      langstr("FLB_STR_VIEW_EMAIL_GRADES_NO_EMAILS_SENT"),
-                      Browser.Buttons.OK);
+                     langstr("FLB_STR_VIEW_EMAIL_GRADES_NO_EMAILS_SENT"),
+                     Browser.Buttons.OK);
        //ss.toast(langstr("FLB_STR_VIEW_EMAIL_GRADES_NO_EMAILS_SENT"), langstr("FLB_STR_NOTIFICATION"), 60);
      }
    
@@ -473,7 +486,7 @@ function constructQuestionDiv(graded_ques, grade_status, grade_points_str, show_
               -webkit-box-shadow: #B3B3B3 10px 10px 10px;-moz-box-shadow: #B3B3B3 10px 10px 10px; box-shadow: #B3B3B3 10px 10px 10px;'
   div_body += 'background-color:' + bgcolor + ';">';
   
-  div_body += '<span style="width:120px;float:right;padding-right:20px;">';
+  div_body += '<span style="width:130px;float:right;padding-right:20px;">';
   div_body += '<div style="width:100%;font-size:xx-large;">' + grade_status + '</div>';
   div_body += '<div style="width:100%;padding-left:5px;">' + grade_points_str + '</div>';
   div_body += '</span>';
