@@ -7,6 +7,127 @@
 
 // To do (June 7, 13): Strings in histogram are not translated. need to url encode translated versions in the code, first.
 
+gbl_lang_id = ""; // identifies the language if the UI.
+
+function setLanguage()
+{   
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var app = UiApp.createApplication()
+                      .setTitle(langstr("FLB_STR_MENU_SET_LANGUAGE"))
+                      .setWidth("230").setHeight("100");
+
+   var handler = app.createServerClickHandler('setLanguageHandler');
+  
+   // create the main panel to hold all content in the UI for this step,
+   var main_panel = app.createVerticalPanel()
+                       .setStyleAttribute('border-spacing', '10px');
+   app.add(main_panel);
+  
+   ss.show(app);
+ 
+   // create a pull-down box containing all the questions which identify a
+   // student. 
+   var lbox_name = "language_select";
+   var lbox = app.createListBox(false).setId(lbox_name).setName(lbox_name);
+   var position = -1;
+   
+   for (var item in langs)
+     {
+       lbox.addItem(langs[item]["FLB_LANG_IDENTIFIER"], item);
+     }
+   
+   lbox.setSelectedIndex(0);    
+   handler.addCallbackElement(lbox);  
+  
+    var hpanel = app.createHorizontalPanel()
+       .setStyleAttribute('border-spacing', '6px')
+    .add(app.createLabel(langstr("FLB_STR_MENU_SET_LANGUAGE") + ":"))
+       .add(lbox);
+   main_panel.add(hpanel);
+
+   var btnSubmit = app.createButton(langstr("FLB_STR_BUTTON_CONTINUE"),handler).setId('CONTINUE');
+  
+   main_panel.add(btnSubmit);
+ 
+   ss.show(app);   
+ }
+
+function setLanguageHandler(e)
+ {
+   var ss = SpreadsheetApp.getActiveSpreadsheet();
+   var app = UiApp.getActiveApplication();
+
+   var up = PropertiesService.getUserProperties();
+   
+   var language_id = e.parameter.language_select;
+ 
+   up.setProperty(USER_PROP_LANGUAGE_ID, language_id);
+   
+   // reload menu
+   createFlubarooMenu();
+   
+   // rename Student Submissions sheet, if it was already set to an English name.
+   //renameSubmissionsSheet();
+   
+   app.close()
+   return app;
+ }
+
+
+// langstr: Given a string id, returns the localized version of that string, based on the global gbl_lang_id.
+function langstr(id)
+{
+  var up = PropertiesService.getUserProperties();
+  
+  if (gbl_lang_id == "")
+    {
+      // not yet defined. look it up!
+      gbl_lang_id = up.getProperty(USER_PROP_LANGUAGE_ID);
+      
+      if (gbl_lang_id == "" || gbl_lang_id == null || gbl_lang_id === undefined)
+        {
+          // never explicitly set by user (via menu). set to default.
+          gbl_lang_id = "en-us"; // default
+        }
+    }
+  
+  // Return the specified string in the language selected. if not defined, return the English version.
+  if (langs[gbl_lang_id][id])
+    {
+      return langs[gbl_lang_id][id];
+    }
+  else
+    {
+      return langs['en-us'][id];
+    }
+}
+// Special version of langstr that returns the string in English-US.
+// Used in the rare & special case when we can't lookup the user's preferred language.
+function langstr_en(id)
+{
+  return langs["en-us"][id];
+}
+
+// checkForMissingTranslations: Used for testing purposes only, before publishing a 
+// new Add-on when a new language has been added.
+function checkForMissingTranslations()
+{    
+  var en_translations = langs['en-us']; // dont' change
+  
+  for (var lang_to_check in langs)
+    {
+      Debug.info("checking " + lang_to_check);
+      for (var en_str_to_check in en_translations)
+        {
+          //Logger.log("checking: " + en_str_to_check);
+          if (!(en_str_to_check in langs[lang_to_check]))
+            {
+              Debug.info(lang_to_check + " is missing: " + en_str_to_check);
+            }
+        }
+    }
+}
+
 // langs:
 // Global collection of localized strings used in Flubaroo. 
 langs = { 
@@ -51,7 +172,7 @@ langs = {
         "FBL_STR_STEP2_INSTR" : "Please select which submission should be used as the Answer Key. Typically this will be a submission made by you. All other submissions will be graded against the Answer Key, so take care to ensure that you select the right one.",
 
         // Message shown if not enough submissions to perform grading.
-        "FBL_STR_GRADE_NOT_ENOUGH_SUBMISSIONS" : "There must be at least 2 submissions to perform grading. Please try again when more students have submitted their answers.",
+        "FBL_STR_GRADE_NOT_ENOUGH_SUBMISSIONS" : "There must are not enough submissions to perform grading. Ensure you've submitted an answer key, and/or try again when more students have submitted their answers.",
 
         // Please wait" message first shown when Flubaroo is first examining assignment.
         "FLB_STR_WAIT_INSTR1" : "Flubaroo is examining your assignment. Please wait...",
@@ -132,17 +253,17 @@ langs = {
         "FLB_STR_EMAIL_GRADES_INSTR" : "Flubaroo can email each student their grade, as well as the correct answers. Use the pull-down menu to select the question that asked students for their email address. If email addresses were not collected, then you will not be able to email grades.",
 
         // Notice that grades cannot be emailed because the user has exceeded their daily quota.
-        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo cannot email grades at this time because you have exceeded your daily quota of 100 emails per day. This quota is set by Google for all Add-ons. Please try again later.",
+        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo cannot email grades at this time because you have exceeded your daily quota of emails per day. This quota is set by Google for all Add-ons. Please try again later.",
       
         // Message about how many grade emails *have* been sent. This message is preceeded by a number.
         // Example: "5 grades were successfully emailed"
         "FLB_STR_VIEW_EMAIL_GRADES_NUMBER_SENT" : "grades were successfully emailed",
 
         // Message about how many grade emails *have NOT* been sent. This message is preceeded by a number.
-        "FLB_STR_VIEW_EMAIL_GRADES_NUMBER_UNSENT" : "grades were not sent due to invalid or blank email addresses, or because they have already been emailed their grades.",
+        "FLB_STR_VIEW_EMAIL_GRADES_NUMBER_UNSENT" : "grades were not sent due to invalid or blank email addresses, because they have already been emailed their grades, or because you have exceeded your daily email quota.",
 
         // Message about how many grade emails *have NOT* been sent.
-        "FLB_STR_VIEW_EMAIL_GRADES_NO_EMAILS_SENT" : "No grades were emailed because no valid email addresses were found, or because all students have already been emailed their grades.",     
+        "FLB_STR_VIEW_EMAIL_GRADES_NO_EMAILS_SENT" : "No grades were emailed because no valid email addresses were found, because all students have already been emailed their grades, or because you have exceeded your daily email quota.",     
       
         // Subject of the email students receive. Followed by assignment name. 
         // Example: Here is your grade for "Algebra Quiz #6"
@@ -156,7 +277,7 @@ langs = {
         "FLB_STR_EMAIL_GRADES_DO_NOT_REPLY_MSG" : "Do not reply to this email",
 
         // Message that preceedes the student's grade
-        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Your grade (points)",
+        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Your grade",
 
         // Message that preceedes the instructor's (optional) message in the email
         "FLB_STR_EMAIL_GRADES_INSTRUCTOR_MSG_BELOW" : "Below is a message from your instructor, sent to the entire class",
@@ -286,9 +407,24 @@ langs = {
         // Menu option to learn About Flubaroo.
         "FLB_STR_MENU_ABOUT" : "About Flubaroo",
 
+        // Menu title for "Advanced" sub-menu
+        "FLB_STR_MENU_ADVANCED" : "Advanced",
+      
+        // Menu title for Advanced > Options
+        "FLB_STR_MENU_ADV_OPTIONS" : "Advanced Options",
+      
         // Menu option to choose the language.
         "FLB_STR_MENU_SET_LANGUAGE" : "Set Language",
 
+        // Menu option to enable autograde.
+        "FLB_STR_MENU_ENABLE_AUTO_GRADE" : "Enable Autograde",
+  
+        // Menu option to disable autograde.
+        "FLB_STR_MENU_DISABLE_AUTO_GRADE" : "Disable Autograde",
+      
+        // Menu option to see reamining daily email quota
+        "FLB_STR_MENU_SHOW_EMAIL_QUOTA" : "Check Email Quota",
+      
         // Word that appears on the "Continue" button in grading and emailing grades.
         "FLB_STR_BUTTON_CONTINUE" : "Continue",
 
@@ -335,7 +471,46 @@ langs = {
         "FLB_STR_VIEW_REPORT_BUTTON_EMAIL_ME" : "Email Me Report",
 
         // Notification that tells who the report was emailed to (example: "The report has been emailed to: bob@hi.com")
-        "FLB_STR_VIEW_REPORT_EMAIL_NOTIFICATION" : "The report has been emailed to"
+        "FLB_STR_VIEW_REPORT_EMAIL_NOTIFICATION" : "The report has been emailed to",
+      
+        // Message to show the user in the top-left cell of the Grading sheet when grading starts. 
+        "FLB_STR_GRADING_CELL_MESSAGE" : "Grading latest submissions...",
+      
+        // Message that pops up to notify the user that autograde is on.
+        "FLB_STR_AUTOGRADE_IS_ON" : "Autograde is enabled. Flubaroo is waiting for new submissions to grade. Don't make changes to any sheets until autograde is turned off.",
+
+        // Message that pops up to notify the user that autograde is on.
+        "FLB_STR_AUTOGRADE_IS_OFF" : "Autograde has been turned off.",
+      
+        // Message to ask the user if they want to grade recent, ungraded submissions, before autograde is enabled.
+        "FLB_STR_AUTOGRADE_GRADE_RECENT" : "Some recent submissions have yet to be graded. Would you like Flubaroo to grade them first, before autograde is enabled?",
+
+        // Message to tell the user that autograde must gather grading and email settings before being turned on.      
+        "FLB_STR_AUTOGRADE_SETUP" : "Before enabling autograde you must first setup your grading and email settings. Click 'OK' to proceed.",
+ 
+        // Message asking user if they'd like to update their grading and email settings before turning on autograde.
+        "FLB_STR_AUTOGRADE_UPDATE" : "Before enabling autograde, would you like to update your grading and email settings?",
+      
+        // Title of Advanced Options window
+        "FLB_STR_ADV_OPTIONS_WINDOW_TITLE" : "Advanced Options",
+
+        // Advanced Options notice that appears at the top of the window, telling the user to read the help center articles.
+        "FLB_STR_ADV_OPTIONS_NOTICE" : "Only change these settings if you have read the correponding help articles",
+      
+        // Text for Advanced Options, describing option to not use noreply@ email address when sending grades.      
+        "FLB_STR_ADV_OPTIONS_NO_NOREPLY" : "Use my return address when emailing grades, rather than the noreply@ address.",
+     
+        // Text for Advanced Options, describing option to send grades via Google Docs, instead of email.
+        "FLB_STR_ADV_OPTIONS_GOOGLE_DOCS" : "Instead of email, send grades via a Google Doc shared with each student. (EXPERIMENTAL!)",
+      
+        // Text for Advanced Options, describing option to send each student a link to edit their response.
+        "FLB_STR_ADV_OPTIONS_EMAIL_EDIT_LINK" : "Upon submission, auto-email the student a link to quickly edit their response.",
+      
+        // Text for Advanced Options, describing option to change the 70% pass rate.
+        "FLB_STR_ADV_OPTIONS_PASS_RATE" : "Percentage below which student info is highlighted in red: ",
+
+        // Message about how many more emails user can send that day. Shown from the Advanced > Check Email Quota menu.  
+        "FLB_STR_EMAIL_QUOTA_MSG" : "You have this many emails left in your daily quota: ",
     },
     // END ENGLISH //////////////////////////////////////////////////////////////////////////////////
 
@@ -420,7 +595,7 @@ langs = {
 
         "FLB_STR_EMAIL_GRADES_INSTR" : "Flubaroo puede enviar por correo a cada alumno su calificación, así como las respuestas correctas. Use el menú desplegable para seleccionar la pregunta que contiene la dirección de correo electrónico. Si las direcciones de correo electrónico no fueron enviadas por los alumnos, no será posible enviar las calificaciones.",
 
-        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo no puede enviar por correo electrónico los grados en este momento, ya que ha superado su cuota diaria de 100 correos electrónicos por día. Esta cuota es fijada por Google. Por favor, inténtelo de nuevo más tarde.",
+        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo no puede enviar por correo electrónico los grados en este momento, ya que ha superado su cuota diaria de correos electrónicos por día. Esta cuota es fijada por Google. Por favor, inténtelo de nuevo más tarde.",
       
         "FLB_STR_VIEW_EMAIL_GRADES_NUMBER_SENT" : " informes de Calificaciones se enviaron corectamente",
 
@@ -434,7 +609,7 @@ langs = {
 
         "FLB_STR_EMAIL_GRADES_DO_NOT_REPLY_MSG" : "Por favor no responda a este correo",
 
-        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Calificación (puntos)",
+        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Calificación",
 
         "FLB_STR_EMAIL_GRADES_INSTRUCTOR_MSG_BELOW" : "Debajo verás un mensaje de tu Profesor/a, envió a toda la clase",
 
@@ -631,7 +806,7 @@ langs = {
 
         "FLB_STR_EMAIL_GRADES_INSTR" : "Flubaroo kan eposta poängen till varje elev inklusive rätta svaren. Använd menyn för att välja frågan som motsvarar elevernas epostadress. Om epostadresser inte samlades in så kommer du inte kunna eposta poängen.",
 
-        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo kan inte maila betyg just nu eftersom den har överskridit sin dagliga kvot på 100 e-postmeddelanden per dag. Denna kvot är satt av Google. Försök igen senare.",
+        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo kan inte maila betyg just nu eftersom den har överskridit sin dagliga kvot på e-postmeddelanden per dag. Denna kvot är satt av Google. Försök igen senare.",
       
         "FLB_STR_VIEW_EMAIL_GRADES_NUMBER_SENT" : "poäng epostades",
 
@@ -842,7 +1017,7 @@ langs = {
  
         "FLB_STR_EMAIL_GRADES_INSTR" : "Flubaroo может отправить каждому учащемуся его баллы, а также правильные ответы. Используйте выпадающее меню для выбора вопроса, запрашивающего электронные адреса учеников. Если адреса электронной почты не были собраны, то вы не сможете отправить оценки по электронной почте. ",
 
-        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo не может сорта по электронной почте в это время, потому что он превысил свои ежедневные квоты 100 писем в день. Эта квота устанавливается Google. Пожалуйста, повторите попытку позже.",
+        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo не может сорта по электронной почте в это время, потому что он превысил свои ежедневные квоты писем в день. Эта квота устанавливается Google. Пожалуйста, повторите попытку позже.",
       
         "FLB_STR_VIEW_EMAIL_GRADES_NUMBER_SENT" : "оценок  успешно отправлены",
  
@@ -856,7 +1031,7 @@ langs = {
  
         "FLB_STR_EMAIL_GRADES_DO_NOT_REPLY_MSG" : "Не отвечайте на это письмо.",
  
-        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Ваша оценка (баллы)",
+        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Ваша оценка",
  
         "FLB_STR_EMAIL_GRADES_INSTRUCTOR_MSG_BELOW" : "Ниже находится сообщение от вашего преподавателя, отправленное всему классу",
  
@@ -1053,7 +1228,7 @@ langs = {
  
         "FLB_STR_EMAIL_GRADES_INSTR" : "Flubaroo kan iedere student een e-mail sturen met de beoordeling en eventueel met de goede antwoorden. Gebruik het keuzemenu om de vraag te selecteren dat de studenten naar hun e-mailadres vroeg. Als er geen e-mailadressen zijn verzameld, kun je geen beoordelingen versturen.",
       
-        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo kan niet rangen e-mail op dit moment omdat het zijn dagelijkse quotum van 100 e-mails per dag is overschreden. Dit contingent wordt door Google ingesteld. Probeer het later opnieuw.",
+        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo kan niet rangen e-mail op dit moment omdat het zijn dagelijkse quotum van e-mails per dag is overschreden. Dit contingent wordt door Google ingesteld. Probeer het later opnieuw.",
       
         "FLB_STR_VIEW_EMAIL_GRADES_NUMBER_SENT" : " beoordelingen werden succesvol verstuurd",
  
@@ -1067,7 +1242,7 @@ langs = {
  
         "FLB_STR_EMAIL_GRADES_DO_NOT_REPLY_MSG" : "Beantwoord deze e-mail niet!",
  
-        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Je beoordeling (punten)",
+        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Je beoordeling",
  
         "FLB_STR_EMAIL_GRADES_INSTRUCTOR_MSG_BELOW" : "Hieronder staat een bericht dat je docent naar de hele klas heeft gestuurd",
  
@@ -1304,7 +1479,7 @@ langs = {
        "FLB_STR_EMAIL_GRADES_INSTR" : "Flubaroo peut envoye rà chaque élèves de la classe les réponses correctes. Utilisez le menu déroulant pour sélectionner la question à envoyer aux élèves par Courriel. Si les adresses n'ont pas été recueillis, alors vous ne serez pas en mesure d'envoyer correctement les courriels.",
 
        // Notice that grades cannot be emailed because the user has exceeded their daily quota.
-       "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaro ne peut pas envoyer par courriell les scores en ce moment parce que vous avez dépassé votre quota quotidien de 100 courriels par jour. Ce quota est fixé par Google  pour tous les Add -ons. Merci d’essayer ultérieurement.",
+       "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaro ne peut pas envoyer par courriell les scores en ce moment parce que vous avez dépassé votre quota quotidien de courriels par jour. Ce quota est fixé par Google  pour tous les Add -ons. Merci d’essayer ultérieurement.",
     
        // Message about how many grade emails *have* been sent. This message is preceeded by a number.
        // Example: "5 grades were successfully emailed"
@@ -1328,7 +1503,7 @@ langs = {
        "FLB_STR_EMAIL_GRADES_DO_NOT_REPLY_MSG" : "Ne pas répondre à ce message",
 
        // Message that preceedes the student's grade
-       "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Notation (points)",
+       "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Notation",
 
        // Message that preceedes the instructor's (optional) message in the email
        "FLB_STR_EMAIL_GRADES_INSTRUCTOR_MSG_BELOW" : "Message de professeur pour l'ensemble de la classe",
@@ -1640,7 +1815,7 @@ langs = {
         "FLB_STR_EMAIL_GRADES_INSTR" : "Flubaroo peut envoyer un courriel à chaque élève, de même que les réponses. Identifiez la question pour laquelle vous avez demandé les courriels. Si l’adresse est incomplète ou invalide, les envois ne fonctionneront pas.",
 
         // Notice that grades cannot be emailed because the user has exceeded their daily quota.
-        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo ne peut envoyer les courriels parce que vous avez dépassé la limite de 100 par jour que fixe Google aux modules externes comme Flubaroo. Merci de réessayer demain.",
+        "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "Flubaroo ne peut envoyer les courriels parce que vous avez dépassé la limite de par jour que fixe Google aux modules externes comme Flubaroo. Merci de réessayer demain.",
       
         // Message about how many grade emails *have* been sent. This message is preceeded by a number.
         // Example: "5 grades were successfully emailed"
@@ -1664,7 +1839,7 @@ langs = {
         "FLB_STR_EMAIL_GRADES_DO_NOT_REPLY_MSG" : "Ne répondez pas à ce courriel",
 
         // Message that preceedes the student's grade
-        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Votre résultat (points)",
+        "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "Votre résultat",
 
         // Message that preceedes the instructor's (optional) message in the email
         "FLB_STR_EMAIL_GRADES_INSTRUCTOR_MSG_BELOW" : "Voici un message de l'enseignant(e), envoyé à tous",
@@ -1968,7 +2143,7 @@ langs = {
 	  "FLB_STR_EMAIL_GRADES_INSTR" : "פלובארו יכול לשלוח ציונים בדואר האלקטרוני לכל תלמיד שנבחן במטלת הביצוע, וכן להציג בפניהם את התשובות הנכונות. השתמש בתפריט הנגלל כדי לבחור את השאלה שבה ביקשת מהתלמידים להזין את כתובת הדואר האלקטרוני שלהם. אם כתובת הדואר האלקטרוני לא הוזנה במבחן, אין באפשרותך לשלוח ציונים בדואר האלקטרוני.",
 
 	  // Notice that grades cannot be emailed because the user has exceeded their daily quota.
-	  "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "פלובארו אינו יכול לשלוח את הציונים בדואר האלקטרוני משום שחצית את המגבלה היומית שלך של 100 הודעות דואר יוצא ביום. המגבלה הזו נקבעת על-ידי גוגל עבור כל התוספים. אנא נסה שנית במועד מאוחר יותר.",
+	  "FLB_STR_EMAIL_DAILY_QUOTA_EXCEEDED" : "פלובארו אינו יכול לשלוח את הציונים בדואר האלקטרוני משום שחצית את המגבלה היומית שלך של הודעות דואר יוצא ביום. המגבלה הזו נקבעת על-ידי גוגל עבור כל התוספים. אנא נסה שנית במועד מאוחר יותר.",
 
 	  // Message about how many grade emails *have* been sent. This message is preceeded by a number.
 	  // Example: "5 grades were successfully emailed"
@@ -1992,7 +2167,7 @@ langs = {
 	  "FLB_STR_EMAIL_GRADES_DO_NOT_REPLY_MSG" : "נא לא להשיב להודעה זו",
 
 	  // Message that preceedes the student's grade
-	  "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "ציונך (בנקודות)",
+	  "FLB_STR_EMAIL_GRADES_YOUR_GRADE" : "ציונך",
 
 	  // Message that preceedes the instructor's (optional) message in the email
 	  "FLB_STR_EMAIL_GRADES_INSTRUCTOR_MSG_BELOW" : "להלן הודעה מהמדריך או המרצה שלך, שנשלחה לכלל תלמידי הכיתה",
@@ -2178,4 +2353,3 @@ langs = {
 } // end langs
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
