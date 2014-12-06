@@ -11,7 +11,7 @@
    var ss = SpreadsheetApp.getActiveSpreadsheet();
   
    var grades_sheet = getSheetWithGrades(ss);  
-   if (grades_sheet == null)
+   if (grades_sheet === null)
      {
        Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
                       langstr("FLB_STR_CANNOT_FIND_GRADES_MSG") + langstr("FLB_STR_SHEETNAME_GRADES"),
@@ -26,7 +26,7 @@
  function createReportUI(ss, grades_sheet)
  {
    var dp = PropertiesService.getDocumentProperties();
-   
+    
    var app = UiApp.createApplication().setTitle(langstr("FLB_STR_VIEW_REPORT_WINDOW_TITLE"))
                                       .setWidth("680").setHeight("490");
      
@@ -88,23 +88,16 @@
  function emailReportHandler(e)
  {
    var dp = PropertiesService.getDocumentProperties();
-   
    var app = UiApp.getActiveApplication();
-   var ss = SpreadsheetApp.getActiveSpreadsheet();
-   var grades_sheet = getSheetWithGrades(ss);
- 
+   var ss = SpreadsheetApp.getActiveSpreadsheet(); 
    var gws = new GradesWorksheet(ss, INIT_TYPE_GRADED_META);
    var points_possible = gws.getPointsPossible();  
    var avg_subm_score = gws.getAverageScore();
-   var num_subm = gws.getNumGradedSubmissions();
-   
+   var num_subm = gws.getNumGradedSubmissions();   
    var title = ss.getName();
-   
    var chart_url = dp.getProperty(DOC_PROP_HISTOGRAM_URL);
    var title = ss.getName();
-   
    var email_address = e.parameter.email_addr;
-   
    var msg_title = langstr("FLB_STR_GRADE_SUMMARY_TEXT_REPORT_FOR") + ": " + title;
  
    // form the html to email
@@ -124,6 +117,9 @@
    //email_address = Session.getActiveUser().getEmail();
    try
      {
+     
+       // TODO_AJR - Everywhere else emailing can be disabled in debug mode.
+     
        MailApp.sendEmail(email_address, msg_title, "",
                                  {htmlBody: html_body, noReply: true, name: "Assignment Grader"});
           
@@ -133,6 +129,8 @@
      }
    catch(exception)
      {
+       Debug.error("emailReportHandler() - failed to email report - " +
+              exception);
      }
    
    return;

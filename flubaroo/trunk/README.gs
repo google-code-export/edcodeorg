@@ -1,8 +1,3 @@
-// flubaroo.gas: Main script for Flubaroo Google Apps Script.
-// This script allows users to easily grade submissions made to spreadsheets via
-// via form against an answer key (which is also a submission). The grades
-// are calculated and placed in an adjacent worksheet.
- 
 // Change Log:
 //   Version 1.0, 3/7/11: Initial release
 //   Version 1.1, 3/22/11: Fixed bug with emailing of grades
@@ -43,3 +38,9 @@
 //   Version 13 6/9/14: Fixed %or bug (issue 86), fixed minor issue with "Incorrect" text in emails sent, and modified 
 //                      multiple language support to make it easier for contributors to localize Flubaroo. Added in notice
 //                      if user is over their daily email quota. Also added in translations for Swedish, Dutch, and Russian.
+//
+//   Version 14 7/18/14: Introduced translations for French, French-Canadian, and Hebrew.
+//   Version 15 8/31/14: Introduced %cs operator for case-sensitive grading (Issue #20).
+//   Version 16 10/29/14: Changes auth dialog (on install) to clarify that Flubaroo only accesses info in the spreadsheets
+//                        where it's installed.
+//   Version 17 12/5/14: Launch of autograde feature! Also introduced advanced option menu.
