@@ -481,13 +481,14 @@ function enoughSubmToGrade(subm_sheet)
   
   // at this point we're guaranteed there is answer key row, which is sufficient for
   // autograde, but not for manual grading. 
-  // we also need this same check for the very first time autograde is turned on, to ensure
-  // we have atleast one actual submission (for the initial grade the user is prompted to do).
   
-  // DAA_TODO: post launch of v18. logic below works for most case, but is confusing. I should clean it up. need to special case the time
-  // when we are essentially forcing autograde after it's turned on, to grade ungraded submissions, 
-  // and pass this flag in somehow, rather than playing guessing games using last_row_count. 
-  // perhaps pass into this function a "start_condition" which is either: manual grade, ag_setup, or ag_triggered.
+  // DAA_TODO: post launch of v18. logic below works for most case, but is confusing. I should clean it up. 
+  // correct logic: If this is a manual grading of either type (menu based, or prompted during ag setup), then
+  //                check for 3-4 rows.
+  // existing logic: If this is a manual grading from the menu, or if ag is on and we've never graded before. 
+  //                 The latter says that if we have graded before, then we must have enough rows already. But if not,
+  //                 then we don't know, so check.
+  // * Perhaps pass into this function a "start_condition" which is either: manual grade, ag_setup, or ag_triggered.
   
   if (!Autograde.isGatheringOptions()
          || (Autograde.isOn() && (last_row_count == 0)))
