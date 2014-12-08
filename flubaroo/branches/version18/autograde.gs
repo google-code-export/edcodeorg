@@ -336,17 +336,9 @@ function AutogradeClass()
     // If some new submissions since last time, or if first time auto-grade
     // is turned on, kick off an autograde (fake a submit trigger).
     // Only bother if enough rows to grade though (3).
-    var num_rows = sheet.getLastRow();
-
     if (enoughSubmToGrade(sheet))
       {
-        var last_row_count = dp.getProperty(DOC_PROP_AUTOGRADE_LAST_ROW_COUNT);
-        if (last_row_count == null)
-          {
-            last_row_count = 0;
-          }
-
-        if (last_row_count != num_rows)
+        if (this.recentUngradedSubmissions())
           {
             var result = Browser.msgBox(langstr("FLB_STR_NOTIFICATION"), 
                                        langstr("FLB_STR_AUTOGRADE_GRADE_RECENT"),
@@ -467,6 +459,35 @@ function AutogradeClass()
   } // AutogradeClass.trackUse()
   
  
+  this.recentUngradedSubmissions = function ()
+  {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var dp = PropertiesService.getDocumentProperties();
+    var sheet = getSheetWithSubmissions(ss);
+    
+    var num_rows = sheet.getLastRow();
+    var last_row_count = dp.getProperty(DOC_PROP_LAST_GRADED_ROW_COUNT);
+    if (last_row_count == null)
+      {
+        // grading has never been done before, so we definitely need to grade initially.
+        last_row_count = 0;
+      }
+    
+    Debug.info("AutogradeClass.recentUngradedSubmissions() - " + last_row_count + "," + num_rows);
+    
+    if (last_row_count != num_rows)
+      {        
+        // there has been a change (likely an increase) in the number
+        // of rows in the submissions sheet since we last ran autograde.
+        return true;
+      }
+    
+    // the number of rows in the submissions sheet is the same now as it
+    // was when we last completed autograding. so nothing recent/new to grade.
+    return false;
+    
+  } // AutogradeClass.recentUngradedSubmissions()          
+ 
 } // AutogradeClass()
 
 // Autograde event handlers
@@ -489,7 +510,7 @@ function toggleAutograde()
 
 function onAutogradeSubmission()
 { 
-  Debug.info("onAutogradeSubmission()");
+  Debug.info("onAutogradeSubmission() - entering");
 
   // Initial checks
   // --------------
@@ -519,7 +540,7 @@ function onAutogradeSubmission()
   // processed, so get an exclusive, public lock.
   grading_lock = LockService.getPublicLock();
   
-  if (!grading_lock.tryLock(10))
+  if (!grading_lock.tryLock(60000))
     {
       Debug.info("onAutogradeSubmission() - Failed to get lock");
       grading_lock.releaseLock();
@@ -532,6 +553,18 @@ function onAutogradeSubmission()
       // the lock is released if we get an error mid-grading.
     
       Debug.info("onAutogradeSubmission() - got lock");
+    
+      // check if we even need to proceed. there's a good chance
+      // that several closely timed submissions will all get graded
+      // by the first trigger, even though each will call this same
+      // trigger-based function in turn.
+      if (!Autograde.recentUngradedSubmissions())
+        {
+          Debug.info("onAutogradeSubmission() - everything already graded, so exiiting");
+          grading_lock.releaseLock();
+          Debug.info("onAutogradeSubmission() - lock released");
+          return;
+        }
       
       dp.setProperty(DOC_PROP_AUTOGRADE_RUNNING, "true");
     
@@ -553,9 +586,6 @@ function onAutogradeSubmission()
           // Get the figures to see if we need to go around again.
           num_rows = sheet.getLastRow();
         }
-      
-      // record the number of rows processed upon exit.
-      dp.setProperty(DOC_PROP_AUTOGRADE_LAST_ROW_COUNT, num_rows);
     }
   finally
     {

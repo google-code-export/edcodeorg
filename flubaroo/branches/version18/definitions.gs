@@ -17,7 +17,7 @@ LOGGING_ON = false;
 LOG_SHEET_NAME = "log";
 
 // Current version. Shown in "About Flubaroo" dialogue.
-gbl_version_str = "Version 17";
+gbl_version_str = "Version 18";
                   
 // NOTE: Update version in README.gas                  
 
@@ -127,6 +127,7 @@ DOC_PROP_NUM_STUDENT_IDENTIFIERS = "flubaroo_num_student_identifiers";
 DOC_PROP_SHEET_INSTALLED_VERSION = "flubaroo_sheet_installed_version";
 DOC_PROP_EMPTY_SUBM_ROW_PTR = "flubaroo_submission_empty_subm_row_ptr";
 DOC_PROP_SKIP_EMAIL = "flubaroo_skip_email";
+DOC_PROP_LAST_GRADED_ROW_COUNT = "flubaroo_auto_grade_last_row_count";
 
 DOC_PROP_EMAIL_ADDRESS_QUESTION = "flubaroo_email_address_question";
 DOC_PROP_EMAIL_INCLUDE_QUESTIONS_SCORES = "flubaroo_email_include_quesions_scores";
@@ -138,7 +139,7 @@ DOC_PROP_AUTOGRADE_SUBMIT_TRIGGER_ID = "flubaroo_auto_grade_submit_trigger_id";
 DOC_PROP_AUTOGRADE_ENABLED = "flubaroo_auto_grade_enabled";
 DOC_PROP_AUTOGRADE_GATHERING_OPTIONS = "flubaroo_auto_grade_gathering_options";
 DOC_PROP_AUTOGRADE_RUNNING = "flubaroo_auto_grade_running";
-DOC_PROP_AUTOGRADE_LAST_ROW_COUNT = "flubaroo_auto_grade_last_row_count";
+
 
 DOC_PROP_UI_OFF = "flubaroo_ui_off"; // Default - if not set - is on.
 DOC_PROP_UI_WAS_OFF = "flubaroo_ui_was_off"; // The UI state before the last autograde transition.

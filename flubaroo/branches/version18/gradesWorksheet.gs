@@ -277,6 +277,9 @@ GradesWorksheet.prototype.processSubmissionsSheet = function()
 
   var numb_rows = this.submissions_sheet.getLastRow();
   
+  // record how many rows we're about to grade. used by autograde logic.
+  dp.setProperty(DOC_PROP_LAST_GRADED_ROW_COUNT, numb_rows);
+  
   // Skip over the first row with questions in (row_num = 2).
   for (var subm_row_num = 2; subm_row_num <= numb_rows; subm_row_num++)
     {
