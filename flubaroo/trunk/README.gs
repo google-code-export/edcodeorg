@@ -44,3 +44,4 @@
 //   Version 16 10/29/14: Changes auth dialog (on install) to clarify that Flubaroo only accesses info in the spreadsheets
 //                        where it's installed.
 //   Version 17 12/5/14: Launch of autograde feature! Also introduced advanced option menu.
+//   Version 18 12/6/14: Small modification to speed-up autograding when there are multiple concurrent submissions.

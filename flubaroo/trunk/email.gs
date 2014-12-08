@@ -314,7 +314,7 @@ function sendEmailGrades()
     }
     catch (exception)
     {
-      Debug.error("sendInstructorEmail() - failed to send email to instructor: " + 
+      Debug.info("sendInstructorEmail() - failed to send email to instructor: " + 
              user_email_addr +
              " Error: " + 
              exception);

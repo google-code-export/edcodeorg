@@ -473,7 +473,7 @@ function enoughSubmToGrade(subm_sheet)
       enough_subm = false;
     }
 
-  var last_row_count = dp.getProperty(DOC_PROP_AUTOGRADE_LAST_ROW_COUNT);
+  var last_row_count = dp.getProperty(DOC_PROP_LAST_GRADED_ROW_COUNT);
   if (last_row_count == null)
     {
       last_row_count = 0;
@@ -483,6 +483,12 @@ function enoughSubmToGrade(subm_sheet)
   // autograde, but not for manual grading. 
   // we also need this same check for the very first time autograde is turned on, to ensure
   // we have atleast one actual submission (for the initial grade the user is prompted to do).
+  
+  // DAA_TODO: post launch of v18. logic below works for most case, but is confusing. I should clean it up. need to special case the time
+  // when we are essentially forcing autograde after it's turned on, to grade ungraded submissions, 
+  // and pass this flag in somehow, rather than playing guessing games using last_row_count. 
+  // perhaps pass into this function a "start_condition" which is either: manual grade, ag_setup, or ag_triggered.
+  
   if (!Autograde.isGatheringOptions()
          || (Autograde.isOn() && (last_row_count == 0)))
     {
