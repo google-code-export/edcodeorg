@@ -100,6 +100,8 @@ GradedSubmission.prototype.initGSVars = function()
                                               this.row_num, 
                                               num_questions);
       
+      
+      /* removing due to possible bug causing Already Emailed column to get cleared.
       // Check if this submission was recently edited. We'll need to track thi
       // so we ensure to email the student their updated grade.
       var submission_notes = singleRowOfNotesToArray(this.submissions_sheet,
@@ -115,6 +117,7 @@ GradedSubmission.prototype.initGSVars = function()
               break;
             }
         }
+        */
       
       // Perform the actual grading!
       this.gradeIt();
