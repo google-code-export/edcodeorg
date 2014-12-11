@@ -540,10 +540,10 @@ function onAutogradeSubmission()
   // processed, so get an exclusive, public lock.
   grading_lock = LockService.getPublicLock();
   
-  if (!grading_lock.tryLock(60000))
+  if (!grading_lock.tryLock(10))
     {
       Debug.info("onAutogradeSubmission() - Failed to get lock");
-      grading_lock.releaseLock();
+      //grading_lock.releaseLock();
       return;
     }
 

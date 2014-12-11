@@ -45,3 +45,5 @@
 //                        where it's installed.
 //   Version 17 12/5/14: Launch of autograde feature! Also introduced advanced option menu.
 //   Version 18 12/6/14: Small modification to speed-up autograding when there are multiple concurrent submissions.
+//   Version 19 1210/14: Fixing issue where autograde can't be disabled due to missing formSubmit trigger.
+//                       Also reverted lock logic to how Andrew had it in his branch, as seeing some user-reported errors.

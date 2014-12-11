@@ -17,14 +17,14 @@ LOGGING_ON = false;
 LOG_SHEET_NAME = "log";
 
 // Current version. Shown in "About Flubaroo" dialogue.
-gbl_version_str = "Version 18";
+gbl_version_str = "Version 19";
                   
 // NOTE: Update version in README.gas                  
 
 // Version update notice. Set this to true when a new version is made
 // available (gbl_version_str is updated). A message will then be popped up during
 // first install of the updated script (see FLB_STR_NEW_VERSION_NOTICE)
-gbl_show_version_update_notice = true;
+gbl_show_version_update_notice = false;
 
 // Global variables for naming things
 gbl_menu_name = 'Flubaroo';

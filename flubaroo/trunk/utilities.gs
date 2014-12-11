@@ -523,14 +523,22 @@ deleteTrigger = function(trigger_id)
       if (all_triggers[i].getUniqueId() === trigger_id) 
         {
           // Found the trigger so delete it.
-        ScriptApp.deleteTrigger(all_triggers[i]);
-        found_trigger = true;
+          try
+            {
+              ScriptApp.deleteTrigger(all_triggers[i]);
+              found_trigger = true;
+            }
+          catch(e)
+            {
+              Debug.warning("Trigger " + trigger_id + " didn't exist, so could not delete!");
+              // trigger didn't exist
+            }
         break;
         }
     }
   
-  Debug.assert(found_trigger, 
-               "deleteTrigger() - tried to delete a non-existant trigger.");  
+  //Debug.assert(found_trigger, 
+  //             "deleteTrigger() - tried to delete a non-existant trigger.");  
   
 } // deleteTrigger()
   
