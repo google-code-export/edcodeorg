@@ -415,8 +415,7 @@ GradedSubmission.prototype.getAlreadyEmailed = function()
 
 GradedSubmission.prototype.getSubmissionEdited = function()
 {
-  //return this.submission_edited;
-  return false; // disabling due to possible bug.
+  return this.submission_edited;
 }
 
 // This gets set to "x" (the value written to the grades sheet) when 

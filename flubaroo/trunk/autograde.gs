@@ -23,8 +23,6 @@
 // TODO_AJR - Should we just have an instance of this when we need it?
 Autograde = new AutogradeClass();
 
-var dbg_messages = new Array();
-
 // Autograde class
 // ---------------
 
@@ -619,8 +617,3 @@ function onAutogradeSubmission()
     }
       
 } // onAutogradeSubmission()
-
-function test()
-{
-  Autograde.isOn();
-}
