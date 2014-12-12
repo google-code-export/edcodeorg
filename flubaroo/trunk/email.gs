@@ -125,6 +125,8 @@ function sendEmailGrades()
       logEmail();
     }
   
+  Debug.writeToFieldLogSheet();
+  
   notifyNumberEmailsSent();
   
   return app;
@@ -161,6 +163,7 @@ function sendEmailGrades()
   
         if (!isValidEmailAddress(email_address) || gs.getAlreadyEmailed())
           {
+            Debug.info("skipping email: '" + email_address + "'");
             num_emails_unsent++;
             continue;
           }

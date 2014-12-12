@@ -100,13 +100,13 @@ GradedSubmission.prototype.initGSVars = function()
                                               this.row_num, 
                                               num_questions);
       
-      
       /* removing due to possible bug causing Already Emailed column to get cleared.
       // Check if this submission was recently edited. We'll need to track thi
       // so we ensure to email the student their updated grade.
       var submission_notes = singleRowOfNotesToArray(this.submissions_sheet,
                                                      this.row_num, 
                                                      num_questions);
+
       for (var i=0; i < submission_notes.length; i++)
         {
           var note = submission_notes[i];
@@ -134,6 +134,9 @@ GradedSubmission.prototype.initGSVars = function()
       this.times_submitted = this.graded_vals[vindex - 1];
       vindex = metric_start_col + METRIC_EMAILED_GRADE;
       this.already_emailed = this.graded_vals[vindex - 1];
+      
+      Debug.info("initGSVars() - this.already_emailed = '" + this.already_emailed + "'");
+      
       vindex = metric_start_col + METRIC_STUDENT_FEEDBACK;
       this.student_feedback = this.graded_vals[vindex - 1];
       vindex = metric_start_col + METRIC_SUBM_COPY_ROW_INDEX;
@@ -412,7 +415,8 @@ GradedSubmission.prototype.getAlreadyEmailed = function()
 
 GradedSubmission.prototype.getSubmissionEdited = function()
 {
-  return this.submission_edited;
+  //return this.submission_edited;
+  return false; // disabling due to possible bug.
 }
 
 // This gets set to "x" (the value written to the grades sheet) when 

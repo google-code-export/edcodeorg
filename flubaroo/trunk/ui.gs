@@ -1037,7 +1037,9 @@ function step2EventHandler(e_step2)
       Debug.assert(gotGradingInfo(), "step2EventHandler() - should have grading info by now")
     }
     
-  if (gotSheetWithGrades(ss) && !justUpgradedThisSheet())
+  Debug.info("invalidate grades sheet on update: " + invalidateGradesOnUpdate());
+  
+  if (gotSheetWithGrades(ss) && !invalidateGradesOnUpdate())
   {
     // Read in a copy of the grades sheet. 
     // We need to do this so we can retain the values of 
@@ -1053,11 +1055,22 @@ function step2EventHandler(e_step2)
               "grades already emailed and student feedback");
     
     gws_graded = new GradesWorksheet(ss, INIT_TYPE_GRADED_PARTIAL);
-    
+
     if (gws_graded)
       {
         already_emailed_info = gws_graded.getAlreadyEmailedInfo();
         student_feedback_info = gws_graded.getStudentFeedbackInfo();
+      }
+    
+    // DAA_TODO: This is not a nice way to show a debug message (using runtime conditions).
+    // But I need it to investigate a field issue.
+    if (already_emailed_info)
+      {
+        Debug.info("already_emailed_info.length: " + already_emailed_info.length);
+      }
+    else
+      {
+         Debug.info("already_emailed_info is null");
       }
   }
   
@@ -1115,6 +1128,8 @@ function step2EventHandler(e_step2)
   }
   
   Debug.info("step2EventHandler() - returning");
+  
+  Debug.writeToFieldLogSheet();
   
   return app;
   

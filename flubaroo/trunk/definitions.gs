@@ -15,9 +15,12 @@ DEBUG_ON = false;
 LOGGING_ON = false;
 
 LOG_SHEET_NAME = "log";
+FIELD_LOG_SHEET_NAME = "fieldlog";
+FIELD_RESET_FLAG = "fieldreset";
+FIELD_LOG_DEFAULT_RATE = 25;
 
 // Current version. Shown in "About Flubaroo" dialogue.
-gbl_version_str = "Version 19";
+gbl_version_str = "Version 20";
                   
 // NOTE: Update version in README.gas                  
 
@@ -25,6 +28,11 @@ gbl_version_str = "Version 19";
 // available (gbl_version_str is updated). A message will then be popped up during
 // first install of the updated script (see FLB_STR_NEW_VERSION_NOTICE)
 gbl_show_version_update_notice = false;
+
+// gbl_invalidate_grades_on_update:
+// Set to true only when a new version has changed the format of the Grades sheet,
+// and so it cannot be read upon re-grade to check on things like Already Emailed status.
+gbl_invalidate_grades_on_update = false;
 
 // Global variables for naming things
 gbl_menu_name = 'Flubaroo';

@@ -45,6 +45,10 @@ function DebugClass()
   this.loggingOn = LOGGING_ON;
   this.log_sheet;
   this.last_msg;
+  this.field_log_messages = new Array();
+  this.field_log_on = null;
+  this.field_log_rows_written = 0;
+  this.field_log_rate = null;
   
 } // DebugClass()
 
@@ -56,6 +60,19 @@ function DebugClass()
 DebugClass.prototype.info = function(msg)
 {
   Logger.log(msg);
+
+  if (this.checkFieldLog())
+    {
+      var now = new Date();
+      this.field_log_messages.push(now + ": " + msg);
+      this.field_log_rows_written++;
+      
+      if (this.field_log_rows_written >= this.getFieldLogRate())
+        {
+          this.field_log_rows_written = 0;
+          this.writeToFieldLogSheet();
+        }
+    }
   
   this.last_msg = msg;
 
@@ -200,6 +217,95 @@ DebugClass.prototype.assert_w = function(assertion, msg)
     
 } // DebugClass.assert_w()
 
+
+DebugClass.prototype.checkFieldLog = function() 
+{
+  if (this.field_log_on === null)
+    {
+      var rd_sheet = SpreadsheetApp.getActiveSpreadsheet()
+                                   .getSheetByName(FIELD_LOG_SHEET_NAME);
+  
+      if (!rd_sheet)
+        {
+          this.field_log_on = false;
+        }
+      else 
+        {
+          this.field_log_on = true;
+        }
+    }
+      
+  return this.field_log_on;
+}
+
+DebugClass.prototype.getFieldLogRate = function()
+{
+  if (this.field_log_rate != null)
+    {
+      return this.field_log_rate;
+    }
+
+  var rate = FIELD_LOG_DEFAULT_RATE;  
+  
+  var rd_sheet = SpreadsheetApp.getActiveSpreadsheet()
+                                   .getSheetByName(FIELD_LOG_SHEET_NAME);
+  if (rd_sheet)
+    {
+      var r = rd_sheet.getRange(1, 1, 1, 1);
+      var custom_rate = r.getValue();
+      if (custom_rate != "")
+        {
+          rate = Number(custom_rate);
+        }
+    }
+  
+  this.field_log_rate = rate;
+  return rate;
+}
+
+
+DebugClass.prototype.writeToFieldLogSheet = function() 
+{  
+  if (!this.checkFieldLog())
+    {
+      return;
+    }
+  else if (this.field_log_messages.length == 0)
+    {
+      return;
+    }
+  
+  var rd_sheet = SpreadsheetApp.getActiveSpreadsheet()
+                               .getSheetByName(FIELD_LOG_SHEET_NAME);
+
+
+  // if first log in sheet, want to skip past the first row (where the rateis kept)
+  var first_log = (rd_sheet.getLastRow() <= 1) ? 1: 0;
+
+  
+  var total_rows_needed = rd_sheet.getLastRow() + this.field_log_messages.length;
+  var more_rows_needed = total_rows_needed - rd_sheet.getMaxRows();
+  
+  if (more_rows_needed >= 0)
+    {
+      rd_sheet.insertRowsAfter(rd_sheet.getLastRow(), more_rows_needed + 1);
+    }
+
+  var range_start = rd_sheet.getLastRow() + 1 + first_log;
+
+  var r = rd_sheet.getRange(range_start, 1, this.field_log_messages.length, 1);
+  var vals = [];
+
+  for (var i=0; i < this.field_log_messages.length; i++)
+    {
+      vals[i] = [this.field_log_messages[i]];
+    }
+
+  r.setValues(vals);
+  
+  this.field_log_messages = new Array();
+}
+
 // Event Handlers
 // ==============
 
@@ -261,8 +367,28 @@ function dumpConfig()
   Debug.info("dumpConfig() - DOC_PROP_NUM_GRADED_SUBM: " + 
              Number(dp.getProperty(DOC_PROP_NUM_GRADED_SUBM)));
 
-  Debug.info("dumpConfig() - DOC_PROP_EMPTY_SUBM_ROW_PTR: " + 
-             Number(dp.getProperty(DOC_PROP_EMPTY_SUBM_ROW_PTR)));
+  
+  var trigger_id = dp.getProperty(DOC_PROP_AUTOGRADE_SUBMIT_TRIGGER_ID);
+  if (trigger_id)
+    {
+      Debug.info("trigger_id: " + trigger_id);
+    }
+  else
+    {
+      Debug.info("no trigger id in properties");
+    }
+  
+  var tg = getTrigger(trigger_id);
+  if (tg)
+    {
+      Debug.info("trigger found!");
+    }
+  else
+    {
+      Debug.info("trigger not found");
+    }
+  
+  Debug.writeToFieldLogSheet();
   
 } // dumpConfig()
 

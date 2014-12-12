@@ -59,6 +59,8 @@ function GradesWorksheet(spreadsheet, init_type)
 	      this.processGradesSheet();
 	    }
     }
+  
+  Debug.writeToFieldLogSheet();
 }
 
 GradesWorksheet.prototype.initGWSVars = function(spreadsheet, init_type)

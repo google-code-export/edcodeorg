@@ -45,5 +45,9 @@
 //                        where it's installed.
 //   Version 17 12/5/14: Launch of autograde feature! Also introduced advanced option menu.
 //   Version 18 12/6/14: Small modification to speed-up autograding when there are multiple concurrent submissions.
-//   Version 19 1210/14: Fixing issue where autograde can't be disabled due to missing formSubmit trigger.
+//   Version 19 12/10/14: Fixing issue where autograde can't be disabled due to missing formSubmit trigger.
 //                       Also reverted lock logic to how Andrew had it in his branch, as seeing some user-reported errors.
+//   Version 20 12/12/14: Added fieldlog functionality. Also created new, simpler non-auth menu to clearup confusion
+//                        on why Autograde couldn't be setup initially in a sheet where Flubaroo hadn't been used yet.
+//                        Lastly, added extra code to ensure that (a) autograde can always be disabled and (b) multiple
+//                        onSubmit triggers don't somehow pile up.

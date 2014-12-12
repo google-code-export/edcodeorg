@@ -425,6 +425,12 @@ langs = {
         // Menu option to see reamining daily email quota
         "FLB_STR_MENU_SHOW_EMAIL_QUOTA" : "Check Email Quota",
       
+        // Menu option shown to enable Flubaroo in a sheet where it's never been used before
+        "FLB_STR_MENU_ENABLE" : "Enable Flubaroo in this sheet",
+      
+        // Message to show when menu option for FLB_STR_MENU_ENABLE is chosen
+        "FLB_STR_FLUBAROO_NOW_ENABLED" : "Flubaroo has been enabled for this sheet. You may now access it from the menu.",
+      
         // Word that appears on the "Continue" button in grading and emailing grades.
         "FLB_STR_BUTTON_CONTINUE" : "Continue",
 

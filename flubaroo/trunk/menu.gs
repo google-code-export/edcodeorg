@@ -18,8 +18,6 @@ function createFlubarooMenu()
       return;
     }
 
-  dumpConfig();
-
   var dp = PropertiesService.getDocumentProperties();
   var ss = SpreadsheetApp.getActiveSpreadsheet();  
   var sui = SpreadsheetApp.getUi();
@@ -48,7 +46,7 @@ function createFlubarooMenu()
   // Only show "Re-grade, Email Grade, View Report, etc, if (a) Grades sheet is present and
   // (b) user didn't just upgrade to a new version of Flubaroo in this sheet. If they just upgraded,
   // assignment must be re-graded first, incase format of Grades sheet is different in new version.
-  else if (gotSheetWithGrades(ss) && !justUpgradedThisSheet())
+  else if (gotSheetWithGrades(ss) && !invalidateGradesOnUpdate())
     {
       // TODO_AJR - Reenable re-grading (presently duplicates grades sheet).
       menu.addItem(langstr("FLB_STR_MENU_REGRADE_ASSIGNMENT"), "menuGradeStep1");
@@ -123,7 +121,8 @@ function createFlubarooMenu()
 // it's been approved in another sheet. So all we're able to do is setup a menu (i.e.
 // can't read properties, etc). Setup a simple English menu, since we can't lookup their lang.
 function createNonAuthMenu()
-{    
+{   
+  /*
   var menuEntries = [];
     
   var ui = SpreadsheetApp.getUi();
@@ -134,6 +133,25 @@ function createNonAuthMenu()
   menu.addItem(langstr_en("FLB_STR_MENU_SET_LANGUAGE"), "setLanguage");
   menu.addItem(langstr_en("FLB_STR_MENU_ABOUT"), "aboutFlubaroo");
   menu.addToUi();
+  */
+  
+  var ui = SpreadsheetApp.getUi();
+  var menu = ui.createMenu(gbl_menu_name);
+  
+  menu.addItem(langstr_en("FLB_STR_MENU_ENABLE"), "enableInSheet");
+  menu.addToUi();
+}
+
+// enableInSheet
+// Simple menu option that does nothing, but by virtue of being clicked
+// allows the menu to be enabled in this sheet. 
+// Called for ScriptApp.AuthMode.NONE.
+function enableInSheet()
+{
+  createFlubarooMenu();
+  
+  Browser.msgBox(langstr("FLB_STR_NOTIFICATION"),
+                 langstr("FLB_STR_FLUBAROO_NOW_ENABLED"), Browser.Buttons.OK);
 }
 
 // skipUIMenu()
@@ -208,6 +226,8 @@ function aboutFlubaroo()
    ss.show(app);
    
    logAboutFlubaroo();
+  
+   dumpConfig();
 }
 
 function menuGradeStep1()

@@ -23,6 +23,8 @@
 // TODO_AJR - Should we just have an instance of this when we need it?
 Autograde = new AutogradeClass();
 
+var dbg_messages = new Array();
+
 // Autograde class
 // ---------------
 
@@ -132,6 +134,7 @@ function AutogradeClass()
     var newState = stateEventTable[presentState][event];
     
     Debug.info("AutogradeClass.setAgUiState() - new state: " + newState);  
+    Debug.info("AutogradeClass.setAgUiState() - event: " + event);
     
     Debug.assert(newState !== ILLEGAL_STATE, "AutogradeClass.setAgUiState() - illegal state");
     
@@ -290,11 +293,16 @@ function AutogradeClass()
       }
     else
       {
-        Debug.error("Autograde.off() - submit trigger not set.");
+        Debug.warning("Autograde.off() - submit trigger had no recorded property.");
       }
 
     // Set autograding and ui flags.
     setAgUiState(agUIEvents.AUTOGRADE_OFF);
+    
+    // For good measure, ensure we've deleted the enabled flag
+    // (sometimes bad UI states have caused this problem for users... not sure how,
+    //  but they get stuck in a state where they're unable to disable it).
+    dp.deleteProperty(DOC_PROP_AUTOGRADE_ENABLED);
     
     // Cleanup the "running" flag, incase it was left set somehow.
     dp.deleteProperty(DOC_PROP_AUTOGRADE_RUNNING);
@@ -303,6 +311,8 @@ function AutogradeClass()
     createFlubarooMenu(ss);
     
     this.trackUse(false);
+    
+    Debug.writeToFieldLogSheet();
     
     // Tell the user.
     setNotification(ss, langstr("FLB_STR_NOTIFICATION"),
@@ -320,6 +330,10 @@ function AutogradeClass()
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var dp = PropertiesService.getDocumentProperties();
     var sheet = getSheetWithSubmissions(ss);
+    
+    // ensure any old triggers are gone first. shouldn't have to, but
+    // seeing weird trigger related issues (likely related to Google bug).
+    deleteAllProjectTriggers();
     
     var trigger = ScriptApp.newTrigger("onAutogradeSubmission")
                            .forSpreadsheet(ss)
@@ -354,6 +368,8 @@ function AutogradeClass()
     // track usage of autograde.
     this.trackUse(true);
     
+    Debug.writeToFieldLogSheet();
+    
     setNotification(ss, langstr("FLB_STR_NOTIFICATION"),
                     langstr("FLB_STR_AUTOGRADE_IS_ON"));
                              
@@ -371,6 +387,7 @@ function AutogradeClass()
     // Cast the script property as a Boolean.
     var isOn = !!dp.getProperty(DOC_PROP_AUTOGRADE_ENABLED);
     Debug.info("AutogradeClass.isOn(): " + isOn); 
+
     return isOn;
     
   } // AutogradeClass.isOn()
@@ -499,7 +516,12 @@ function AutogradeClass()
 // "toggle Autograde" menu event handler.
 function toggleAutograde()
 {
+  Debug.info("toggleAutograde() - handling user's choice");
+  
   Autograde.isOn() ? Autograde.off() : Autograde.on();
+  
+  dumpConfig();
+  Debug.writeToFieldLogSheet();
 
 } // toggleAutograde()
 
@@ -593,6 +615,12 @@ function onAutogradeSubmission()
       dp.deleteProperty(DOC_PROP_AUTOGRADE_RUNNING);
       grading_lock.releaseLock();
       Debug.info("onAutogradeSubmission() - lock released");
+      Debug.writeToFieldLogSheet();
     }
       
 } // onAutogradeSubmission()
+
+function test()
+{
+  Autograde.isOn();
+}

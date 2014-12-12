@@ -33,9 +33,9 @@ function onOpen(e)
      }
    
    else
-     {      
+     {             
        createFlubarooMenu();
- 
+       
        // notify the user if autograde is enabled in this sheet.
        if (Autograde.isOn())
          {
@@ -513,35 +513,62 @@ setNotification = function(ss, title, msg)
 deleteTrigger = function(trigger_id)
 {
   // Locate a trigger by unique ID.
-  var all_triggers = ScriptApp.getProjectTriggers();
+  var t = getTrigger(trigger_id);
+
+  if (!t) 
+    {
+      // trigger not found
+      Debug.warning("Trigger " + trigger_id + " didn't exist, so could not delete!");
+      return false;
+    }
+  
+  // Found the trigger so delete it.
+  try
+    {
+      ScriptApp.deleteTrigger(t);
+    }
+  catch(e)
+    {
+      Debug.warning("deleteTrigger() - unable to delete existing trigger: " + e);  
+
+      // trigger didn't exist
+    }
+  
+  return true;
+  
+  
+} // deleteTrigger()
+  
+
+// getTrigger()
+// ---------------
+
+getTrigger = function(trigger_id)
+{
+  // Locate a trigger by unique ID.
+  var all_triggers = ScriptApp.getProjectTriggers(); 
   var i;
-  var found_trigger = false;
+  var found_trigger = null;
+  
+  Debug.info("getTrigger - searching for trigger: " + trigger_id);
   
   // Loop over all triggers.
   for (i = 0; i < all_triggers.length; i++) 
     {
       if (all_triggers[i].getUniqueId() === trigger_id) 
         {
-          // Found the trigger so delete it.
-          try
-            {
-              ScriptApp.deleteTrigger(all_triggers[i]);
-              found_trigger = true;
-            }
-          catch(e)
-            {
-              Debug.warning("Trigger " + trigger_id + " didn't exist, so could not delete!");
-              // trigger didn't exist
-            }
-        break;
+          Debug.info("found trigger " + trigger_id);
+          found_trigger = all_triggers[i];
+          break;
         }
     }
+
+  return found_trigger;
+
+} // getTrigger()
   
-  //Debug.assert(found_trigger, 
-  //             "deleteTrigger() - tried to delete a non-existant trigger.");  
-  
-} // deleteTrigger()
-  
+
+
 // createPdfCertificate()
 // ----------------------
 //
@@ -714,10 +741,11 @@ function showNewVersionNotice()
     }
 }
 
-// justUpgradedThisSheet:
+// invalidateGradesOnUpdate:
 // Returns true if this is the first time user has upgraded to or installed
-// a new version of Flubaroo in this spreadsheet.
-function justUpgradedThisSheet()
+// a new version of Flubaroo in this spreadsheet, and the format of the
+// grades sheet has changed as a result of the new version
+function invalidateGradesOnUpdate()
 {
   var dp = PropertiesService.getDocumentProperties();   
 
@@ -726,7 +754,7 @@ function justUpgradedThisSheet()
   
   // new version doesn't get set in properties until assignment
   // is first graded after upgrading.
-  if ((sver == null) || (sver != gbl_version_str))
+  if (((sver == null) || (sver != gbl_version_str)) && gbl_invalidate_grades_on_update)
     {
       return true;
     }
@@ -750,4 +778,23 @@ function justUpgradedFirstTime()
     }
   
   return false;
+}
+
+function deleteAllProjectTriggers()
+{
+  var all_triggers = ScriptApp.getProjectTriggers();
+  
+  Debug.info("first deleting any existing triggers. there are this many: " + all_triggers.length);
+  for (var i = 0; i < all_triggers.length; i++)
+    {
+      try
+        {
+          ScriptApp.deleteTrigger(all_triggers[i]);
+        }
+      catch(e)
+        {
+          Debug.warning("unable to delete a trigger: " + e);
+          continue;
+        }
+    } 
 }
