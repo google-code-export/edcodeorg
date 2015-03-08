@@ -51,3 +51,8 @@
 //                        on why Autograde couldn't be setup initially in a sheet where Flubaroo hadn't been used yet.
 //                        Lastly, added extra code to ensure that (a) autograde can always be disabled and (b) multiple
 //                        onSubmit triggers don't somehow pile up.
+//   Version 21 12/15/14: Removed "toast" notification about autograde from onOpen. Fixed a properties issue when 
+//                        writing grades that was affecting assignments with > 200 submissions.
+//   Version 22 12/16/14: Added gradesSheetIsValid() check to ensure we dont' die trying to read invalid Grades sheet.
+//                        Added Autograde.stillRunning() to fix issue with menu when autograde dies and leaves RUNNING
+//                        property set.

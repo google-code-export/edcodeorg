@@ -1039,7 +1039,9 @@ function step2EventHandler(e_step2)
     
   Debug.info("invalidate grades sheet on update: " + invalidateGradesOnUpdate());
   
-  if (gotSheetWithGrades(ss) && !invalidateGradesOnUpdate())
+  var grades_sheet = getSheetWithGrades(ss);
+  
+  if (grades_sheet && gradesSheetIsValid(grades_sheet) && !invalidateGradesOnUpdate())
   {
     // Read in a copy of the grades sheet. 
     // We need to do this so we can retain the values of 

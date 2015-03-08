@@ -16,11 +16,11 @@ LOGGING_ON = false;
 
 LOG_SHEET_NAME = "log";
 FIELD_LOG_SHEET_NAME = "fieldlog";
-FIELD_RESET_FLAG = "fieldreset";
+FIELD_RESET_SHEET_NAME = "fieldreset";
 FIELD_LOG_DEFAULT_RATE = 25;
 
 // Current version. Shown in "About Flubaroo" dialogue.
-gbl_version_str = "Version 20";
+gbl_version_str = "Version 22";
                   
 // NOTE: Update version in README.gas                  
 

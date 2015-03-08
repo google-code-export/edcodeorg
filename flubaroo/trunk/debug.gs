@@ -306,6 +306,42 @@ DebugClass.prototype.writeToFieldLogSheet = function()
   this.field_log_messages = new Array();
 }
 
+DebugClass.prototype.checkFieldReset = function() 
+{  
+  var rs_sheet = SpreadsheetApp.getActiveSpreadsheet()
+                                .getSheetByName(FIELD_RESET_SHEET_NAME);
+  
+  if (!rs_sheet)
+    {
+      // typical case
+      return;
+    }
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.deleteSheet(rs_sheet);
+  
+  // clear all triggers (should only be one - onSubmit)
+  // note: won't run from onOpen. not allowed there.
+  deleteAllProjectTriggers();
+  
+  // clear all doc properties (mostly those related to autograde)
+  var dp = PropertiesService.getDocumentProperties();
+  dp.deleteAllProperties();
+  
+  // delete grades sheet (likely incomplete)
+  var grades_sheet = getSheetWithGrades(ss);
+  if (grades_sheet)
+  {
+    if (!gradesSheetIsValid(grades_sheet))
+    {
+      ss.deleteSheet(grades_sheet);
+    }
+
+  }
+  
+  return true;
+}
+
 // Event Handlers
 // ==============
 
@@ -485,3 +521,4 @@ function toggleEmailSending()
     }
     
 } // toggleEmailSending()
+

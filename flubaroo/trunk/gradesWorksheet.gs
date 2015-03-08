@@ -744,6 +744,13 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info,
         histogram_buckets[histogram_len] = 0;
       }
     
+    var low_score = LOWSCORE_STUDENT_PERCENTAGE; // default
+    var opt_low_score = dp.getProperty(DOC_PROP_ADV_OPTION_PASS_RATE);
+    if (opt_low_score)
+      {
+        low_score = opt_low_score;
+      }
+    
     for (; gs != null; gs = self.getNextGradedSubmission(), gs_count++)
       { 
         // Initialise the write
@@ -817,7 +824,7 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info,
             // Write the latest submission.
             writeGradedSubmission(gs, 
                                   submissions_start_row + 
-                                    num_graded_subm_written++);
+                                    num_graded_subm_written++, low_score);
             
             // Write out the original full-text answer for each submission 
             // in the footer, adding an extra row if needed.
@@ -857,7 +864,7 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info,
     // Private Functions.
     
     // Write another row in the grades sheet.
-    function writeGradedSubmission(graded_subm, write_row_num)
+    function writeGradedSubmission(graded_subm, write_row_num, low_score)
     {
       // Set the values and color of this row.
       
@@ -876,14 +883,7 @@ GradesWorksheet.prototype.writeGradesSheet = function(already_emailed_info,
           row_range.setBackgroundColor(color);
         }
     
-      // Highlight in red the names of students with low scores.
-      var low_score = LOWSCORE_STUDENT_PERCENTAGE; // default
-      var opt_low_score = dp.getProperty(DOC_PROP_ADV_OPTION_PASS_RATE);
-      if (opt_low_score)
-        {
-          low_score = opt_low_score;
-        }
-      
+      // Highlight in red the names of students with low scores.      
       if (graded_subm.getScorePercent() < low_score)
         {
           self.grades_sheet.getRange(write_row_num, 

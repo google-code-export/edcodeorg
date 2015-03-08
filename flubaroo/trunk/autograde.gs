@@ -338,6 +338,8 @@ function AutogradeClass()
                            .onFormSubmit()
                            .create();
     
+    Debug.info("Autograde.finalizeOn() - onFormSubmit trigger created: " + trigger.getUniqueId()); 
+    
     dp.setProperty(DOC_PROP_AUTOGRADE_SUBMIT_TRIGGER_ID, 
                                  trigger.getUniqueId());
 
@@ -431,10 +433,60 @@ function AutogradeClass()
   this.isRunning = function()
   {
     var dp = PropertiesService.getDocumentProperties();
-    return dp.getProperty(DOC_PROP_AUTOGRADE_RUNNING) === "true";
+    var running = dp.getProperty(DOC_PROP_AUTOGRADE_RUNNING);
+    if (!running)
+      {
+        return false;
+      }
+    
+    return true;
     
   } // AutogradeClass.isRunning()
   
+  this.stillRunning = function()
+  {
+    // first, check if autograde is enabled, and we are running
+    if (!(Autograde.isOn() && Autograde.isRunning()))
+    {
+      return false;
+    }
+    
+    // next, check that it's not been more than X minutes since we 
+    // started running. otherwise we'll assume grading died, in which
+    // case we'll reset the running flag.
+    var dp = PropertiesService.getDocumentProperties();
+    var running = dp.getProperty(DOC_PROP_AUTOGRADE_RUNNING);
+    
+    Debug.info("Autograde.stillRunning() - running: " + running);
+    
+    // fix issue for pre version 22 users who are stuck with "Help" menu.
+    // can remove this "true" check on next version.
+    if (running && (running == "true"))
+    {
+      dp.deleteProperty(DOC_PROP_AUTOGRADE_RUNNING);
+      return false;
+    }
+
+    var ms1 = Number(running);
+           
+    var dt = new Date();
+    var ms2 = dt.getTime();
+
+
+    var diff = ms2 - ms1;
+    Debug.info("Autograde.stillRunning(): time since run start: " + diff.toString());
+
+    if ((ms2 - ms1) > (5 * 60 * 1000))
+    {
+      // grading probably died while autograde was running
+      Debug.info("too much time has passed since autograde started.");
+      dp.deleteProperty(DOC_PROP_AUTOGRADE_RUNNING);
+      return false;       
+    }
+    
+    return true;
+    
+  } // AutogradeClass.isRunning()
   
   this.uiOn = function ()
   {
@@ -516,6 +568,8 @@ function toggleAutograde()
 {
   Debug.info("toggleAutograde() - handling user's choice");
   
+  dumpConfig();
+  
   Autograde.isOn() ? Autograde.off() : Autograde.on();
   
   dumpConfig();
@@ -586,7 +640,11 @@ function onAutogradeSubmission()
           return;
         }
       
-      dp.setProperty(DOC_PROP_AUTOGRADE_RUNNING, "true");
+      // log the time when autograde started running
+      var dt = new Date();
+      var ms = dt.getTime();
+      var ms_str = ms.toString();
+      dp.setProperty(DOC_PROP_AUTOGRADE_RUNNING, ms_str);
     
       var num_rows = sheet.getLastRow();
       var rows_processed = 0;
@@ -617,3 +675,4 @@ function onAutogradeSubmission()
     }
       
 } // onAutogradeSubmission()
+

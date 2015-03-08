@@ -4,15 +4,14 @@
 // This file contains all the code related to setting up the menu, and 
 // some setup functions that respond to the menu selections.
 
-
 // Flubaroo Menu
 // =============
 
 function createFlubarooMenu()
 {        
-
-  if (Autograde.isOn() && Autograde.isRunning())
+  if (Autograde.stillRunning())
     {
+      Debug.info("createFlubarooMenu() - returning b/c autograde is running");
       // Autograde can't update any UI related stuff when running from
       // a trigger.
       return;
@@ -22,7 +21,8 @@ function createFlubarooMenu()
   var ss = SpreadsheetApp.getActiveSpreadsheet();  
   var sui = SpreadsheetApp.getUi();
   var menu = sui.createMenu(gbl_menu_name);
-
+  var grades_sheet = getSheetWithGrades(ss);
+  
   if (Autograde.isOn())
     {
       // Don't allow the usual options. Just the ability to turn this off.
@@ -46,7 +46,7 @@ function createFlubarooMenu()
   // Only show "Re-grade, Email Grade, View Report, etc, if (a) Grades sheet is present and
   // (b) user didn't just upgrade to a new version of Flubaroo in this sheet. If they just upgraded,
   // assignment must be re-graded first, incase format of Grades sheet is different in new version.
-  else if (gotSheetWithGrades(ss) && !invalidateGradesOnUpdate())
+  else if (grades_sheet && gradesSheetIsValid(grades_sheet) && !invalidateGradesOnUpdate())
     {
       // TODO_AJR - Reenable re-grading (presently duplicates grades sheet).
       menu.addItem(langstr("FLB_STR_MENU_REGRADE_ASSIGNMENT"), "menuGradeStep1");
@@ -249,3 +249,4 @@ function menuAdvancedOptions()
   
   return;
 }
+

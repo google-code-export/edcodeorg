@@ -35,14 +35,6 @@ function onOpen(e)
    else
      {             
        createFlubarooMenu();
-       
-       // notify the user if autograde is enabled in this sheet.
-       if (Autograde.isOn())
-         {
-           var ss = SpreadsheetApp.getActiveSpreadsheet();
-           setNotification(ss, langstr("FLB_STR_NOTIFICATION"),
-                    langstr("FLB_STR_AUTOGRADE_IS_ON"));
-         }
      }
  }
 
@@ -762,6 +754,25 @@ function invalidateGradesOnUpdate()
   return false;
 }
 
+
+// gradesSheetIsValid: Returns true if grades_sheet is valid (grading completed). False otherwise.
+// Assumes the grades_sheet passed isn't null (Grades sheet exists)
+function gradesSheetIsValid(grades_sheet)
+{
+  var single_cell = grades_sheet.getRange(2, 2, 1, 1);
+  var val = single_cell.getValue();
+
+  if (val == "" || isNaN(val))
+    {
+      Debug.info("invalid grades sheet");
+      return false;
+    }
+  
+  Debug.info("existing grades sheet is valid");
+ 
+  return true;
+}
+
 // justUpgradedFirstTime:
 // Returns true if this is the first time the user has upgrade to or installed a new
 // version of Flubaroo.
@@ -789,7 +800,9 @@ function deleteAllProjectTriggers()
     {
       try
         {
-          ScriptApp.deleteTrigger(all_triggers[i]);
+          var t = all_triggers[i];
+          Debug.info("deleteAllProjectTriggers() - deleting trigger: " + t.getUniqueId());
+          ScriptApp.deleteTrigger(t);
         }
       catch(e)
         {
